@@ -1,0 +1,8 @@
+torch >= 0.4.1
+imageio
+scipy
+argparse
+tensorboardX
+blessings
+progressbar2
+path.py
