@@ -103,13 +103,13 @@ def main():
                                             std=[0.5, 0.5, 0.5])
 
     ##not sure transform utility and did not write down the transform for ground truth data
-    # train_transform = custom_transforms.Compose([
-    #     custom_transforms.RandomHorizontalFlip(),
-    #     custom_transforms.RandomScaleCrop(),
-    #     custom_transforms.ArrayToTensor(),
-    #     normalize
-    # ])
-    train_transform = custom_transforms.Compose([custom_transforms.ArrayToTensor(), normalize])
+    train_transform = custom_transforms.Compose([
+        custom_transforms.RandomHorizontalFlip(),
+        custom_transforms.RandomScaleCrop(),
+        custom_transforms.ArrayToTensor(),
+        normalize
+    ])
+    # train_transform = custom_transforms.Compose([custom_transforms.ArrayToTensor(), normalize])
     #**************************
     valid_transform = custom_transforms.Compose([custom_transforms.ArrayToTensor(), normalize])
 
