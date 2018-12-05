@@ -24,9 +24,9 @@ def supervised_l1_loss(gt_depth,depth):
         valid = (current_gt > 0) & (current_gt < 80)        
         #valid = valid & crop_mask               
         valid_gt = current_gt[valid]
-        valid_pred = current_pred[valid].clamp(1e-3, 80)
-        loss += ((valid_gt.abs()-valid_pred.abs())**2).mean()
-    loss = loss/4 #batch size equal 4
+        valid_pred = current_pred[valid].clamp(1e-3, 80)#; pdb.set_trace()
+        loss += ((valid_gt.to(torch.float32).abs()-valid_pred.abs())**2).mean()
+    loss = loss/pred_depth.size()[0] #batch size equal 4
     return loss
 
 

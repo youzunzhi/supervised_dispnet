@@ -2,7 +2,7 @@ import torch.utils.data as data
 import numpy as np
 from imageio import imread
 from path import Path
-
+import pdb
 
 def crawl_folders(folders_list):
         imgs = []
@@ -46,9 +46,9 @@ class ValidationSet(data.Dataset):
 
     def __getitem__(self, index):
         img = load_as_float(self.imgs[index])
-        depth = np.load(self.depth[index]).astype(np.float32)
-        if self.transform is not None:
-            img, _ = self.transform([img], None)
+        depth = np.load(self.depth[index]).astype(np.float32) #;pdb.set_trace()
+        if self.transform is not None: 
+            img, _, _ = self.transform([img], None, None); 
             img = img[0]
         return img, depth
 

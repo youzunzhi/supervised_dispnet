@@ -12,7 +12,7 @@ class Compose(object):
     def __init__(self, transforms):
         self.transforms = transforms
 
-    def __call__(self, images, intrinsics):
+    def __call__(self, images, gt_depth, intrinsics):
         for t in self.transforms:
             images, gt_depth, intrinsics = t(images, gt_depth, intrinsics)
         return images, gt_depth, intrinsics
