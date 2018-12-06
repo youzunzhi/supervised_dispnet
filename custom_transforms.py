@@ -3,6 +3,7 @@ import torch
 import random
 import numpy as np
 from scipy.misc import imresize
+import pdb
 
 '''Set of tranform random routines that takes list of inputs as arguments,
 in order to have random but coherent transformations.'''
@@ -39,7 +40,7 @@ class ArrayToTensor(object):
             # put it from HWC to CHW format
             im = np.transpose(im, (2, 0, 1))
             # handle numpy array
-            tensors.append(torch.from_numpy(im).float()/255)
+            tensors.append(torch.from_numpy(im).float()/255);pdb.set_trace()
         return tensors, gt_depth, intrinsics
 
 
@@ -51,7 +52,7 @@ class RandomHorizontalFlip(object):
         if random.random() < 0.5:
             output_intrinsics = np.copy(intrinsics)
             output_images = [np.copy(np.fliplr(im)) for im in images]
-            output_depth = np.fliplr(gt_depth)
+            output_depth = np.copy(np.fliplr(gt_depth))
             w = output_images[0].shape[1]
             output_intrinsics[0,2] = w - output_intrinsics[0,2]
         else:
