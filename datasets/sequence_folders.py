@@ -3,7 +3,7 @@ import numpy as np
 from imageio import imread
 from path import Path
 import random
-
+import pdb
 
 def load_as_float(path):
     return imread(path).astype(np.float32)
@@ -56,10 +56,11 @@ class SequenceFolder(data.Dataset):
         tgt_img = load_as_float(sample['tgt'])
         ref_imgs = [load_as_float(ref_img) for ref_img in sample['ref_imgs']]
         #add gt depth
-        gt_depth = np.load(sample['gt_depth'])
+        gt_depth = np.load(sample['gt_depth'])#;print(type(gt_depth))
         # if transform, need to transform gt
         if self.transform is not None:
             imgs, gt_depth_tensor, intrinsics = self.transform([tgt_img] + ref_imgs, gt_depth, np.copy(sample['intrinsics']))
+            #print(type(gt_depth_tensor))#check when turn into tensor
             tgt_img = imgs[0]
             ref_imgs = imgs[1:] 
         else:

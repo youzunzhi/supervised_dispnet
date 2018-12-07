@@ -105,8 +105,8 @@ def main():
 
     ##not sure transform utility and did not write down the transform for ground truth data
     train_transform = custom_transforms.Compose([
-        custom_transforms.RandomHorizontalFlip(),
-        custom_transforms.RandomScaleCrop(),
+        #custom_transforms.RandomHorizontalFlip(),
+        custom_transforms.RandomScaleCrop(),# test without crop
         custom_transforms.ArrayToTensor(),
         normalize
     ])
@@ -275,6 +275,7 @@ def train(args, train_loader, disp_net, pose_exp_net, optimizer, epoch_size, log
         ref_imgs = [img.to(device) for img in ref_imgs]
         intrinsics = intrinsics.to(device)
         intrinsics_inv = intrinsics_inv.to(device); #pdb.set_trace()#check data type of gt_depth
+        #print(type(gt_depth))
         gt_depth = gt_depth.to(device)
         # compute output
         disparities = disp_net(tgt_img)

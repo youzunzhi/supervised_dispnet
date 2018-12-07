@@ -48,7 +48,7 @@ class ValidationSet(data.Dataset):
         img = load_as_float(self.imgs[index])
         depth = np.load(self.depth[index]).astype(np.float32) #;pdb.set_trace()
         if self.transform is not None: 
-            img, _, _ = self.transform([img], None, None); 
+            img, _, _ = self.transform([img], depth, None); #this depth is just used to fill the compose transform that is shared(no need for the result)
             img = img[0]
         return img, depth
 

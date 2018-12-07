@@ -28,6 +28,8 @@ class Normalize(object):
         for tensor in images:
             for t, m, s in zip(tensor, self.mean, self.std):
                 t.sub_(m).div_(s)
+        #check when gt_depth is turned into tensor
+        #print(type(gt_depth))
         return images, gt_depth, intrinsics
 
 
@@ -41,6 +43,7 @@ class ArrayToTensor(object):
             im = np.transpose(im, (2, 0, 1))
             # handle numpy array
             tensors.append(torch.from_numpy(im).float()/255)#;pdb.set_trace()
+            #print(type(gt_depth))
             gt_depth_tensor=torch.from_numpy(gt_depth).float()
         return tensors, gt_depth_tensor, intrinsics
 
@@ -60,6 +63,7 @@ class RandomHorizontalFlip(object):
             output_images = images
             output_intrinsics = intrinsics
             output_depth = gt_depth
+        #print(type(output_depth))
         return output_images, output_depth, output_intrinsics
 
 
@@ -88,5 +92,5 @@ class RandomScaleCrop(object):
 
         output_intrinsics[0,2] -= offset_x
         output_intrinsics[1,2] -= offset_y
-
+        #print(type(cropped_gt))
         return cropped_images, cropped_gt, output_intrinsics
