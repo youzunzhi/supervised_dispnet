@@ -59,12 +59,12 @@ class SequenceFolder(data.Dataset):
         gt_depth = np.load(sample['gt_depth'])
         # if transform, need to transform gt
         if self.transform is not None:
-            imgs, gt_depth, intrinsics = self.transform([tgt_img] + ref_imgs, gt_depth, np.copy(sample['intrinsics']))
+            imgs, gt_depth_tensor, intrinsics = self.transform([tgt_img] + ref_imgs, gt_depth, np.copy(sample['intrinsics']))
             tgt_img = imgs[0]
             ref_imgs = imgs[1:] 
         else:
             intrinsics = np.copy(sample['intrinsics'])
-        return tgt_img, ref_imgs, intrinsics, np.linalg.inv(intrinsics), gt_depth
+        return tgt_img, ref_imgs, intrinsics, np.linalg.inv(intrinsics), gt_depth_tensor
 
     def __len__(self):
         return len(self.samples)

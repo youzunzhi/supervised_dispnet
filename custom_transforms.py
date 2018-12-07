@@ -40,8 +40,9 @@ class ArrayToTensor(object):
             # put it from HWC to CHW format
             im = np.transpose(im, (2, 0, 1))
             # handle numpy array
-            tensors.append(torch.from_numpy(im).float()/255);pdb.set_trace()
-        return tensors, gt_depth, intrinsics
+            tensors.append(torch.from_numpy(im).float()/255)#;pdb.set_trace()
+            gt_depth_tensor=torch.from_numpy(gt_depth).float()
+        return tensors, gt_depth_tensor, intrinsics
 
 
 class RandomHorizontalFlip(object):
