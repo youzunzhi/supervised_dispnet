@@ -5,6 +5,7 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 from inverse_warp import inverse_warp
 import pdb
+from scipy.misc import imresize
 
 #add supervised loss
 def supervised_l2_loss(gt_depth,depth):
@@ -50,6 +51,8 @@ def Multiscale_scale_invar_loss(gt_depth,depth):
     loss_all = 0
     for i in range(len(depth)):
         loss = 0
+        valid = None
+        gt_depth = imresize(gt_depth)#not sure how to change size of gt_depth
         for current_gt, current_pred in zip(gt_depth, depth[i][:,0]):#change following part to change loss genre
             valid = (current_gt > 0) & (current_gt < 80)        
             #valid = valid & crop_mask               
