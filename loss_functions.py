@@ -7,7 +7,7 @@ from inverse_warp import inverse_warp
 import pdb
 
 #add supervised loss
-def supervised_l1_loss(gt_depth,depth):
+def supervised_l2_loss(gt_depth,depth):
     #if type(gt_depth) not in [tuple, list]:
      #   gt_depth = [gt_depth]
 
@@ -30,7 +30,20 @@ def supervised_l1_loss(gt_depth,depth):
     loss = loss/pred_depth.size()[0] #batch size equal 4
     return loss
 
-
+def Scale_invariant_loss(gt_depth,depth):
+    pred_depth =depth[0][:,0] #same tensor shape 4*128*416 as gt_depth(only the unscaled scale)
+    loss = 0
+    for current_gt, current_pred in zip(gt_depth, pred_depth):
+        valid = (current_gt > 0) & (current_gt < 80)        
+        #valid = valid & crop_mask               
+        valid_gt = current_gt[valid]
+        valid_pred = current_pred[valid].clamp(1e-3, 80);# pdb.set_trace()
+        num_valid = valid.sum().to(torch.float32)
+        scalar = torch.tensor(0.5)/(num_valid**2)
+        #loss += ((valid_gt.to(torch.float32).abs()-valid_pred.abs())**2).mean()
+        loss += ((valid_gt.abs()-valid_pred.abs())**2).mean()-((valid_gt-valid_pred).sum()**2)*scalar
+    loss = loss/(pred_depth.size()[0]).to(torch.float32) #batch size equal 4
+    return loss
 
 def photometric_reconstruction_loss(tgt_img, ref_imgs, intrinsics, intrinsics_inv, depth, explainability_mask, pose, rotation_mode='euler', padding_mode='zeros'):
     def one_scale(depth, explainability_mask):

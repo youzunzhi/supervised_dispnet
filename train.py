@@ -282,7 +282,8 @@ def train(args, train_loader, disp_net, pose_exp_net, optimizer, epoch_size, log
         depth = [1/disp for disp in disparities]
         explainability_mask, pose = pose_exp_net(tgt_img, ref_imgs)
 
-        loss_1 = supervised_l1_loss(gt_depth, depth)
+        #loss_1 = supervised_l2_loss(gt_depth, depth)
+        loss_1 = Scale_invariant_loss(gt_depth, depth)
         #original loss_1(unsupervised)
         # loss_1 = photometric_reconstruction_loss(tgt_img, ref_imgs,
         #                                          intrinsics, intrinsics_inv,
