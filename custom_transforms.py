@@ -82,7 +82,7 @@ class RandomScaleCrop(object):
         output_intrinsics[1] *= y_scaling
         scaled_images = [imresize(im, (scaled_h, scaled_w)) for im in images]
         #data augment for ground truth depth
-        scaled_gt = imresize(gt_depth, (scaled_h, scaled_w))
+        scaled_gt = imresize(gt_depth, (scaled_h, scaled_w))/255.0*np.amax(gt_depth)#test
 
         offset_y = np.random.randint(scaled_h - in_h + 1)
         offset_x = np.random.randint(scaled_w - in_w + 1)
