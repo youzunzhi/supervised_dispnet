@@ -15,7 +15,7 @@ import models
 from utils import tensor2array, save_checkpoint, save_path_formatter
 from inverse_warp import inverse_warp
 
-from loss_functions import supervised_l1_loss, photometric_reconstruction_loss, explainability_loss, smooth_loss, compute_errors
+from loss_functions import supervised_l2_loss, Scale_invariant_loss, photometric_reconstruction_loss, explainability_loss, smooth_loss, compute_errors
 from logger import TermLogger, AverageMeter
 from tensorboardX import SummaryWriter
 import pdb

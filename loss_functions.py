@@ -39,10 +39,10 @@ def Scale_invariant_loss(gt_depth,depth):
         valid_gt = current_gt[valid]
         valid_pred = current_pred[valid].clamp(1e-3, 80);# pdb.set_trace()
         num_valid = valid.sum().to(torch.float32)
-        scalar = torch.tensor(0.5)/(num_valid**2)
+        #scalar = torch.cuda.tensor(0.5)/(num_valid**2)
         #loss += ((valid_gt.to(torch.float32).abs()-valid_pred.abs())**2).mean()
-        loss += ((valid_gt.abs()-valid_pred.abs())**2).mean()-((valid_gt-valid_pred).sum()**2)*scalar
-    loss = loss/(pred_depth.size()[0]).to(torch.float32) #batch size equal 4
+        loss += ((valid_gt.abs()-valid_pred.abs())**2).mean()-torch.mul((valid_gt-valid_pred).sum()**2,0.5)/(num_valid**2)
+    loss = loss/(pred_depth.size()[0])#.to(torch.float32) #batch size equal 4
     return loss
 
 def photometric_reconstruction_loss(tgt_img, ref_imgs, intrinsics, intrinsics_inv, depth, explainability_mask, pose, rotation_mode='euler', padding_mode='zeros'):
