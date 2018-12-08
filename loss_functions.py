@@ -45,6 +45,23 @@ def Scale_invariant_loss(gt_depth,depth):
     loss = loss/(pred_depth.size()[0])#.to(torch.float32) #batch size equal 4
     return loss
 
+def Multiscale_scale_invar_loss(gt_depth,depth):
+    pred_depth =depth[0][:,0] #same tensor shape 4*128*416 as gt_depth(only the unscaled scale)
+    loss_all = 0
+    for i in range(len(depth)):
+        loss = 0
+        for current_gt, current_pred in zip(gt_depth, depth[i][:,0]):#change following part to change loss genre
+            valid = (current_gt > 0) & (current_gt < 80)        
+            #valid = valid & crop_mask               
+            valid_gt = current_gt[valid]
+            valid_pred = current_pred[valid].clamp(1e-3, 80);# pdb.set_trace()
+            num_valid = valid.sum().to(torch.float32)
+            #scalar = torch.cuda.tensor(0.5)/(num_valid**2)
+            #loss += ((valid_gt.to(torch.float32).abs()-valid_pred.abs())**2).mean()
+            loss += ((valid_gt.abs()-valid_pred.abs())**2).mean()-torch.mul((valid_gt-valid_pred).sum()**2,0.5)/(num_valid**2)
+        loss_all += loss/(pred_depth.size()[0])#.to(torch.float32) #batch size equal 4    
+    return loss_all
+
 def photometric_reconstruction_loss(tgt_img, ref_imgs, intrinsics, intrinsics_inv, depth, explainability_mask, pose, rotation_mode='euler', padding_mode='zeros'):
     def one_scale(depth, explainability_mask):
         assert(explainability_mask is None or depth.size()[2:] == explainability_mask.size()[2:])
