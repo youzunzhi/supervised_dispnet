@@ -15,7 +15,7 @@ import models
 from utils import tensor2array, save_checkpoint, save_path_formatter
 from inverse_warp import inverse_warp
 
-from loss_functions import Multiscale_scale_invar_loss, supervised_l2_loss, Scale_invariant_loss, photometric_reconstruction_loss, explainability_loss, smooth_loss, compute_errors
+from loss_functions import supervised_l1_loss, Multiscale_L2_loss, supervised_l2_loss, Scale_invariant_loss, photometric_reconstruction_loss, explainability_loss, smooth_loss, compute_errors
 #rom loss_functions import *
 from logger import TermLogger, AverageMeter
 from tensorboardX import SummaryWriter
@@ -107,7 +107,7 @@ def main():
     ##not sure transform utility and did not write down the transform for ground truth data
     train_transform = custom_transforms.Compose([
         custom_transforms.RandomHorizontalFlip(),
-        custom_transforms.RandomScaleCrop(),# test without crop
+        #custom_transforms.RandomScaleCrop(),# test without crop
         custom_transforms.ArrayToTensor(),
         normalize
     ])
@@ -283,9 +283,10 @@ def train(args, train_loader, disp_net, pose_exp_net, optimizer, epoch_size, log
         depth = [1/disp for disp in disparities]
         explainability_mask, pose = pose_exp_net(tgt_img, ref_imgs)
 
-        loss_1 = supervised_l2_loss(gt_depth, depth)
+        loss_1 = supervised_l1_loss(gt_depth, depth)
+        #loss_1 = supervised_l2_loss(gt_depth, depth)
         #loss_1 = Scale_invariant_loss(gt_depth, depth)
-        #loss_1 = Multiscale_scale_invar_loss(gt_depth, depth)
+        #loss_1 = Multiscale_L2_loss(gt_depth, depth)
         #original loss_1(unsupervised)
         # loss_1 = photometric_reconstruction_loss(tgt_img, ref_imgs,
         #                                          intrinsics, intrinsics_inv,

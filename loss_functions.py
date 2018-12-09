@@ -31,6 +31,29 @@ def supervised_l2_loss(gt_depth,depth):
     loss = loss/pred_depth.size()[0] #batch size equal 4
     return loss
 
+def supervised_l1_loss(gt_depth,depth):
+    #if type(gt_depth) not in [tuple, list]:
+     #   gt_depth = [gt_depth]
+
+    #in case of crop
+    # crop_mask = gt_depth[0] != gt_depth[0]
+    # y1,y2 = int(0.40810811 * gt_depth.size(1)), int(0.99189189 * gt_depth.size(1))
+    # x1,x2 = int(0.03594771 * gt_depth.size(2)), int(0.96405229 * gt_depth.size(2))
+    # crop_mask[y1:y2,x1:x2] = 1
+    #*****************8
+    
+    pred_depth =depth[0][:,0] #same tensor shape 4*128*416 as gt_depth(only the unscaled scale)
+    loss = 0
+    for current_gt, current_pred in zip(gt_depth, pred_depth):
+        valid = (current_gt > 0) & (current_gt < 80)        
+        #valid = valid & crop_mask               
+        valid_gt = current_gt[valid]
+        valid_pred = current_pred[valid].clamp(1e-3, 80);# pdb.set_trace()
+        #loss += ((valid_gt.to(torch.float32).abs()-valid_pred.abs())**2).mean()
+        loss += (valid_gt.abs()-valid_pred.abs()).mean()
+    loss = loss/pred_depth.size()[0] #batch size equal 4
+    return loss
+
 def Scale_invariant_loss(gt_depth,depth):
     pred_depth =depth[0][:,0] #same tensor shape 4*128*416 as gt_depth(only the unscaled scale)
     loss = 0
@@ -46,7 +69,7 @@ def Scale_invariant_loss(gt_depth,depth):
     loss = loss/(pred_depth.size()[0])#.to(torch.float32) #batch size equal 4
     return loss
 
-def Multiscale_scale_invar_loss(gt_depth,depth):
+def Multiscale_L2_loss(gt_depth,depth):
     pred_depth =depth[0][:,0] #same tensor shape 4*128*416 as gt_depth(only the unscaled scale)
     loss_all = 0
     for i in range(len(depth)):
@@ -61,7 +84,7 @@ def Multiscale_scale_invar_loss(gt_depth,depth):
             num_valid = valid.sum().to(torch.float32)
             #scalar = torch.cuda.tensor(0.5)/(num_valid**2)
             #loss += ((valid_gt.to(torch.float32).abs()-valid_pred.abs())**2).mean()
-            loss += ((valid_gt.abs()-valid_pred.abs())**2).mean()-torch.mul((valid_gt-valid_pred).sum()**2,0.5)/(num_valid**2)
+            loss += ((valid_gt.abs()-valid_pred.abs())**2).mean()
         loss_all += loss/(pred_depth.size()[0])#.to(torch.float32) #batch size equal 4    
     return loss_all
 
