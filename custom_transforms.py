@@ -4,7 +4,8 @@ import random
 import numpy as np
 from scipy.misc import imresize
 import pdb
-
+from skimage.transform import rescale
+import cv2 as cv
 '''Set of tranform random routines that takes list of inputs as arguments,
 in order to have random but coherent transformations.'''
 
@@ -14,6 +15,7 @@ class Compose(object):
         self.transforms = transforms
 
     def __call__(self, images, gt_depth, intrinsics):
+        #for gt_scale
         for t in self.transforms:
             images, gt_depth, intrinsics = t(images, gt_depth, intrinsics)
         return images, gt_depth, intrinsics
@@ -82,7 +84,8 @@ class RandomScaleCrop(object):
         output_intrinsics[1] *= y_scaling
         scaled_images = [imresize(im, (scaled_h, scaled_w)) for im in images]
         #data augment for ground truth depth
-        scaled_gt = imresize(gt_depth, (scaled_h, scaled_w))/255.0*np.amax(gt_depth)#test
+        gt_scale=np.amax(gt_depth)
+        scaled_gt = imresize(gt_depth/gt_scale, (scaled_h, scaled_w))/255.0*gt_scale#test
 
         offset_y = np.random.randint(scaled_h - in_h + 1)
         offset_x = np.random.randint(scaled_w - in_w + 1)
