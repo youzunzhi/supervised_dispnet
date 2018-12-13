@@ -19,7 +19,7 @@ def supervised_l2_loss(gt_depth,depth):
     # crop_mask[y1:y2,x1:x2] = 1
     #*****************8
     
-    pred_depth =depth[0][:,0] #same tensor shape 4*128*416 as gt_depth(only the unscaled scale)
+    pred_depth =depth[0][:,0]; #pdb.set_trace() #same tensor shape 4*128*416 as gt_depth(only the unscaled scale)
     loss = 0
     for current_gt, current_pred in zip(gt_depth, pred_depth):
         valid = (current_gt > 0) & (current_gt < 80)        
