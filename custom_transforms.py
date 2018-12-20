@@ -3,9 +3,10 @@ import torch
 import random
 import numpy as np
 from scipy.misc import imresize
-import pdb
-from skimage.transform import rescale
-import cv2 as cv
+#import pdb
+#from skimage.transform import rescale
+from scipy.ndimage.interpolation import zoom
+#import cv2 as cv
 '''Set of tranform random routines that takes list of inputs as arguments,
 in order to have random but coherent transformations.'''
 
@@ -79,13 +80,25 @@ class RandomScaleCrop(object):
         in_h, in_w, _ = images[0].shape
         x_scaling, y_scaling = np.random.uniform(1,1.15,2)
         scaled_h, scaled_w = int(in_h * y_scaling), int(in_w * x_scaling)
+        #scaled_h, scaled_w = round(in_h * y_scaling), round(in_w * x_scaling)
 
         output_intrinsics[0] *= x_scaling
         output_intrinsics[1] *= y_scaling
         scaled_images = [imresize(im, (scaled_h, scaled_w)) for im in images]
         #data augment for ground truth depth
-        gt_scale=np.amax(gt_depth)
-        scaled_gt = imresize(gt_depth/gt_scale, (scaled_h, scaled_w))/255.0*gt_scale#test
+        
+        scaled_gt = zoom(gt_depth, (scaled_h/in_h, scaled_w/in_w))
+        # gt_scale=np.amax(gt_depth)
+        # scaled_gt = imresize(gt_depth, (scaled_h, scaled_w))/255.0*gt_scale#test
+
+        # print("gt_scale{}".format(gt_scale))
+        # print("gt_depth")
+        # print(gt_depth)
+        # print("scaled_gt")
+        # print(scaled_gt);# pdb.set_trace()
+
+        #print(gt_depth); pdb.set_trace()
+        #scaled_gt = zoom(gt_depth, (y_scaling, x_scaling))/255.0*gt_scale#test
 
         offset_y = np.random.randint(scaled_h - in_h + 1)
         offset_x = np.random.randint(scaled_w - in_w + 1)

@@ -107,7 +107,7 @@ def main():
     ##not sure transform utility and did not write down the transform for ground truth data
     train_transform = custom_transforms.Compose([
         custom_transforms.RandomHorizontalFlip(),
-        #custom_transforms.RandomScaleCrop(),# test without crop
+        custom_transforms.RandomScaleCrop(),# test without crop
         custom_transforms.ArrayToTensor(),
         normalize
     ])

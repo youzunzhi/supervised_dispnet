@@ -6,7 +6,8 @@ from torch.autograd import Variable
 from inverse_warp import inverse_warp
 import pdb
 from scipy.misc import imresize
-
+import warnings
+warnings.filterwarnings('ignore', '.*output shape of zoom.*')
 #add supervised loss
 def supervised_l2_loss(gt_depth,depth):
     #if type(gt_depth) not in [tuple, list]:
@@ -25,7 +26,7 @@ def supervised_l2_loss(gt_depth,depth):
         valid = (current_gt > 0) & (current_gt < 80)        
         #valid = valid & crop_mask               
         valid_gt = current_gt[valid]
-        valid_pred = current_pred[valid].clamp(1e-3, 80);# pdb.set_trace()
+        valid_pred = current_pred[valid].clamp(1e-3, 80)#;# pdb.set_trace()
         #loss += ((valid_gt.to(torch.float32).abs()-valid_pred.abs())**2).mean()
         loss += ((valid_gt.abs()-valid_pred.abs())**2).mean()
     loss = loss/pred_depth.size()[0] #batch size equal 4
