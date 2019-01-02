@@ -66,7 +66,7 @@ class Disp_res(nn.Module):
         self.upconv4 = upconv(upconv_planes[1], upconv_planes[2])
         self.upconv3 = upconv(upconv_planes[2], upconv_planes[3])
         self.upconv2 = upconv(upconv_planes[3], upconv_planes[4])
-		self.upconv1 = upconv(upconv_planes[4], upconv_planes[5])	
+        self.upconv1 = upconv(upconv_planes[4], upconv_planes[5])	
 
         self.iconv6 = conv(upconv_planes[0] + conv_planes[4], upconv_planes[0])
         self.iconv5 = conv(upconv_planes[1] + conv_planes[3], upconv_planes[1])
@@ -82,21 +82,21 @@ class Disp_res(nn.Module):
         self.predict_disp1 = predict_disp(upconv_planes[5])
 
     def resblock(self, planes, num_blocks, stride=1):
-		downsample=None
-	    if stride != 1 or self.inplanes != planes * 4:
-	        downsample = nn.Sequential(
-	            conv1x1(self.inplanes, planes * 4, stride),
-	            nn.BatchNorm2d(planes * 4),
-	        )
+        downsample=None
+        if stride != 1 or self.inplanes != planes * 4:
+            downsample = nn.Sequential(
+                conv1x1(self.inplanes, planes * 4, stride),
+                nn.BatchNorm2d(planes * 4),
+            )
 
-	    layers=[]
-	    layers.append(Bottleneck(self.inplanes, planes, stride，downsample))
-	    self.inplanes = planes * 4#all the 4 is originally block.expansion
-	    for _ in range(1, num_blocks)
-	    	layers.append(Bottleneck(self.inplanes, planes, stride))#inplanes, planes, stride=1
+        layers=[]
+        layers.append(Bottleneck(self.inplanes, planes, stride, downsample))
+        self.inplanes = planes * 4#all the 4 is originally block.expansion
+        for _ in range(1, num_blocks):
+            layers.append(Bottleneck(self.inplanes, planes))#inplanes, planes, stride=1
 	    #layers.append(Bottleneck(self.inplanes, planes, stride=2))
 
-    	return nn.Sequential(*layers)
+        return nn.Sequential(*layers)
 
     def init_weights(self):
         for m in self.modules():
@@ -107,10 +107,10 @@ class Disp_res(nn.Module):
 
     def forward(self, x):
     	#encoder
-    	conv1 = self.conv1(x)
+        conv1 = self.conv1(x)
         bn1   = self.bn1(conv1)
         relu1 = self.relu(bn1)       # H/2  -   64D
-        pool1 = self.maxpool(relu1)  # H/4  -   64D
+        pool1 = self.pool1(relu1)  # H/4  -   64D
 
         conv2 = self.layer1(pool1)   # H/8  -  256D
         conv3 = self.layer2(conv2)   # H/16 -  512D
@@ -180,8 +180,8 @@ class Bottleneck(nn.Module):
         self.bn1 = nn.BatchNorm2d(planes)
         self.conv2 = conv3x3(planes, planes, stride)
         self.bn2 = nn.BatchNorm2d(planes)
-        self.conv3 = conv1x1(planes, planes * self.expansion)
-        self.bn3 = nn.BatchNorm2d(planes * self.expansion)
+        self.conv3 = conv1x1(planes, planes * 4)
+        self.bn3 = nn.BatchNorm2d(planes * 4)
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
         self.stride = stride
@@ -202,7 +202,10 @@ class Bottleneck(nn.Module):
 
         if self.downsample is not None:
         	identity = self.downsample(x)
-
+        # check shape
+        print(identity.size())
+        print(out.size())
+        #
         out += identity
         out = self.relu(out)
 
