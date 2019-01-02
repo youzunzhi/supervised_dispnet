@@ -154,8 +154,8 @@ def main():
     # create model
     print("=> creating model")
     #changing different network
-    #disp_net = models.DispNetS().to(device)
-    disp_net = models.Disp_res().to(device)
+    disp_net = models.DispNetS().to(device)
+    #disp_net = models.Disp_res().to(device)
     output_exp = args.mask_loss_weight > 0
     if not output_exp:
         print("=> no mask loss, PoseExpnet will only output pose")
