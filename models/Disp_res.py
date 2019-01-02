@@ -53,7 +53,8 @@ class Disp_res(nn.Module):
         #not sure with or without BN
         self.bn1 = nn.BatchNorm2d(64) #tinghui trick for vgg similiar struture did not have that part in order to improve
         self.relu = nn.ReLU(inplace=True)
-        self.pool1 = maxpool(3)                                                      
+        #self.pool1 = maxpool(3)
+        self.pool1=nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         self.layer1 = self.resblock(conv_planes[1], 3)
         self.layer2 = self.resblock(conv_planes[2], 4, stride=2)
         self.layer3 = self.resblock(conv_planes[3], 6, stride=2)
@@ -61,19 +62,19 @@ class Disp_res(nn.Module):
         
         #decode
         upconv_planes = [512, 256, 128, 64, 32, 16]
-        self.upconv6 = upconv(conv_planes[4],   upconv_planes[0])
+        self.upconv6 = upconv(conv_planes[4]*4,   upconv_planes[0])
         self.upconv5 = upconv(upconv_planes[0], upconv_planes[1])
         self.upconv4 = upconv(upconv_planes[1], upconv_planes[2])
         self.upconv3 = upconv(upconv_planes[2], upconv_planes[3])
         self.upconv2 = upconv(upconv_planes[3], upconv_planes[4])
         self.upconv1 = upconv(upconv_planes[4], upconv_planes[5])	
 
-        self.iconv6 = conv(upconv_planes[0] + conv_planes[4], upconv_planes[0])
-        self.iconv5 = conv(upconv_planes[1] + conv_planes[3], upconv_planes[1])
-        self.iconv4 = conv(upconv_planes[2] + conv_planes[2], upconv_planes[2])
+        self.iconv6 = conv(upconv_planes[0] + conv_planes[3]*4, upconv_planes[0])
+        self.iconv5 = conv(upconv_planes[1] + conv_planes[2]*4, upconv_planes[1])
+        self.iconv4 = conv(upconv_planes[2] + conv_planes[1]*4, upconv_planes[2])
         #with depth result from last layer
-        self.iconv3 = conv(1 + upconv_planes[3] + conv_planes[1], upconv_planes[4])
-        self.iconv2 = conv(1 + upconv_planes[4] + conv_planes[0], upconv_planes[5])
+        self.iconv3 = conv(1 + upconv_planes[3] + conv_planes[1], upconv_planes[3])
+        self.iconv2 = conv(1 + upconv_planes[4] + conv_planes[0], upconv_planes[4])
         self.iconv1 = conv(1 + upconv_planes[5], upconv_planes[5])
 
         self.predict_disp4 = predict_disp(upconv_planes[2])
@@ -141,7 +142,11 @@ class Disp_res(nn.Module):
         concat3 = torch.cat((upconv3, skip2, disp4_up), 1)
         iconv3 = self.iconv3(concat3)
         disp3 = self.alpha * self.predict_disp3(iconv3) + self.beta
-
+        #print('conv1',conv1.size())
+        #print('bn1',bn1.size())
+        #print('pool1',conv2.size())
+        #print('iconv3',iconv3.size())
+        #print('skip1&relu1',skip1.size())
         upconv2 = crop_like(self.upconv2(iconv3), skip1)
         disp3_up = crop_like(F.interpolate(disp3, scale_factor=2, mode='bilinear', align_corners=False), skip1)
         concat2 = torch.cat((upconv2, skip1, disp3_up), 1)
@@ -203,8 +208,8 @@ class Bottleneck(nn.Module):
         if self.downsample is not None:
         	identity = self.downsample(x)
         # check shape
-        print(identity.size())
-        print(out.size())
+        #print(identity.size())
+        #print(out.size())
         #
         out += identity
         out = self.relu(out)
