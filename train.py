@@ -70,7 +70,7 @@ parser.add_argument('--log-full', default='progress_log_full.csv', metavar='PATH
 parser.add_argument('-p', '--photo-loss-weight', type=float, help='weight for photometric loss', metavar='W', default=1)
 parser.add_argument('-m', '--mask-loss-weight', type=float, help='weight for explainabilty mask loss', metavar='W', default=0)
 parser.add_argument('-s', '--smooth-loss-weight', type=float, help='weight for disparity smoothness loss', metavar='W', default=0.1)
-parser.add_argument('--log-output', action='store_true', help='will log dispnet outputs and warped imgs at validation step')
+parser.add_argument('--log-output', action='store_true', help='will log dispnet outputs and warped imgs at validation step')#'store_true' for boolean
 parser.add_argument('-f', '--training-output-freq', type=int, help='frequence for outputting dispnet outputs and warped imgs at training for all scales if 0 will not output',
                     metavar='N', default=0)
 
@@ -107,7 +107,7 @@ def main():
     ##not sure transform utility and did not write down the transform for ground truth data
     train_transform = custom_transforms.Compose([
         custom_transforms.RandomHorizontalFlip(),
-        custom_transforms.RandomScaleCrop(),# test without crop
+        #custom_transforms.RandomScaleCrop(),# test without crop
         custom_transforms.ArrayToTensor(),
         normalize
     ])
