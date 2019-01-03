@@ -1,8 +1,23 @@
 import torch.cuda
+import torch.nn as nn
+import torch
+import torch.utils.model_zoo as model_zoo
+import torch.nn.functional as F
+#from model_utils import *
+#from utils.util_functions import unsqueeze_dim0_tensor
 
-from model_utils import *
-from utils.util_functions import unsqueeze_dim0_tensor
+def upsample_nn_nearest(x):
+    return F.upsample(x, scale_factor=2, mode='nearest')
 
+def initilize_modules(modules):
+    for m in modules:
+        if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d) or isinstance(m, nn.Linear):
+            torch.nn.init.xavier_uniform_(m.weight)
+            if m.bias is not None:
+                torch.nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.BatchNorm2d):
+                torch.nn.init.constant_(m.weight, 1)
+                torch.nn.init.constant_(m.bias, 0)
 
 def Conv2dBlock2(c_in, c_out, k_size, stride, padding):
     return nn.Sequential(
@@ -134,25 +149,27 @@ class Disp_vgg(nn.Module):
         upconv3 = self.upconv3(iconv4)  # H/8
         concat3 = torch.cat((upconv3, skip3), 1)
         iconv3 = self.iconv3(concat3)
-        disp3 = self.disp3(iconv3)
+        disp3 = self.disp3(iconv3)*20
         disp3up = upsample_nn_nearest(disp3)
 
         upconv2 = self.upconv2(iconv3)  # H/4
         concat2 = torch.cat((upconv2, skip2, disp3up), 1)
         iconv2 = self.iconv2(concat2)
-        disp2 = self.disp2(iconv2)
+        disp2 = self.disp2(iconv2)*20
         disp2up = upsample_nn_nearest(disp2)
 
         upconv1 = self.upconv1(iconv2)  # H/2
         concat1 = torch.cat((upconv1, skip1, disp2up), 1)
         iconv1 = self.iconv1(concat1)
-        disp1 = self.disp1(iconv1)
+        disp1 = self.disp1(iconv1)*20
         disp1up = upsample_nn_nearest(disp1)
 
         upconv0 = self.upconv0(iconv1)
         concat0 = torch.cat((upconv0, disp1up), 1)
         iconv0 = self.iconv0(concat0)
-        disp0 = self.disp0(iconv0)
+        disp0 = self.disp0(iconv0)*20
 
-        scale_disps = [disp0 * 20, disp1 * 20, disp2 * 20, disp3 * 20]
-        return scale_disps
+        if self.training:
+            return disp0, disp1, disp2, disp3
+        else:
+            return disp0
