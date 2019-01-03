@@ -173,8 +173,10 @@ def main():
         print("=> using pre-trained weights for Dispnet")
         weights = torch.load(args.pretrained_disp)
         disp_net.load_state_dict(weights['state_dict'])
-    else:
-        disp_net.init_weights()
+    # for the use of disp_vgg with pretrained
+
+    #else:
+    #    disp_net.init_weights()
 
     cudnn.benchmark = True
     disp_net = torch.nn.DataParallel(disp_net)
