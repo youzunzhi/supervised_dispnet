@@ -38,8 +38,8 @@ def main():
     elif args.gt_type == 'stillbox':
         from stillbox_eval.depth_evaluation_utils import test_framework_stillbox as test_framework
 
-    #disp_net = DispNetS().to(device)
-    disp_net = Disp_res().to(device)
+    disp_net = DispNetS().to(device)
+    #disp_net = Disp_res().to(device)
     weights = torch.load(args.pretrained_dispnet)
     disp_net.load_state_dict(weights['state_dict'])
     disp_net.eval()
