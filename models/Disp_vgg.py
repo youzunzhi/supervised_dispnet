@@ -43,7 +43,7 @@ def ConvTranspose2dBlock1(c_in, c_out, k_size, stride, padding, output_padding):
 
 
 class Disp_vgg(nn.Module):
-    def __init__(self, use_pretrained_weights=True):
+    def __init__(self, use_pretrained_weights=False):
         super(Disp_vgg, self).__init__()
         self.use_pretrained_weights = use_pretrained_weights
         self.only_train_dec = False
