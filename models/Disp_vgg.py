@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch
 import torch.utils.model_zoo as model_zoo
 import torch.nn.functional as F
-#from model_utils import *
+#from .model_utils import * #use . represent relative address
 #from utils.util_functions import unsqueeze_dim0_tensor
 
 def upsample_nn_nearest(x):
