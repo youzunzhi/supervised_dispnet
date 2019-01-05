@@ -101,9 +101,11 @@ def main():
             output_writers.append(SummaryWriter(args.save_path/'valid'/str(i)))
 
     # Data loading code
-    normalize = custom_transforms.Normalize(mean=[0.5, 0.5, 0.5],
-                                            std=[0.5, 0.5, 0.5])
-
+    # normalize = custom_transforms.Normalize(mean=[0.5, 0.5, 0.5],
+    #                                         std=[0.5, 0.5, 0.5])
+    #normalize for pretrained
+    normalize = custom_transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                            std=[0.229, 0.224, 0.225])
     ##not sure transform utility and did not write down the transform for ground truth data
     train_transform = custom_transforms.Compose([
         custom_transforms.RandomHorizontalFlip(),

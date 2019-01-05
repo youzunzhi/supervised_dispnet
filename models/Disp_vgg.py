@@ -175,19 +175,19 @@ class Disp_vgg(nn.Module):
         iconv0  = self.iconv0(concat0)
         disp0   = self.disp0(iconv0)
 
-        #check encoder net
-        print(conv1.size())
-        print(conv2.size())
-        print(conv3.size())
-        print(conv4.size())
-        print(conv5.size())
+        # #check encoder net
+        # print(conv1.size())
+        # print(conv2.size())
+        # print(conv3.size())
+        # print(conv4.size())
+        # print(conv5.size())
 
-        #check decoder net
-        print(upconv4.size())
-        print(upconv3.size())
-        print(upconv2.size())
-        print(upconv1.size())
-        print(upconv0.size())
+        # #check decoder net
+        # print(upconv4.size())
+        # print(upconv3.size())
+        # print(upconv2.size())
+        # print(upconv1.size())
+        # print(upconv0.size())
 
         if self.training:
             return 20*disp0, 20*disp1, 20*disp2, 20*disp3
