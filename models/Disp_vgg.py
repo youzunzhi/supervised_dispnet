@@ -45,9 +45,14 @@ def ConvTranspose2dBlock1(c_in, c_out, k_size, stride, padding, output_padding):
         #nn.ReLU(inplace=True)
     )
 
+def predict_disp(in_planes):
+    return nn.Sequential(
+        nn.Conv2d(in_planes, 1, kernel_size=3, padding=1),
+        nn.Sigmoid()
+    )
 
 class Disp_vgg(nn.Module):
-    def __init__(self, alpha=20, beta=0.0, use_pretrained_weights=True):
+    def __init__(self, alpha=10, beta=0.01, use_pretrained_weights=False):
         super(Disp_vgg, self).__init__()
         self.use_pretrained_weights = use_pretrained_weights
         self.only_train_dec = False
@@ -92,15 +97,10 @@ class Disp_vgg(nn.Module):
         self.upconv0 = ConvTranspose2dBlock1(32, 16, 4, 2, 1, 0)
         self.iconv0 = Conv2dBlock1(16 + 1, 16, 3, 1, 1)
 
-        disp3 = nn.Conv2d(128, 1, 3, 1, 1)
-        disp2 = nn.Conv2d(64, 1, 3, 1, 1)
-        disp1 = nn.Conv2d(32, 1, 3, 1, 1)
-        disp0 = nn.Conv2d(16, 1, 3, 1, 1)
-
-        self.disp3 = disp3
-        self.disp2 = disp2
-        self.disp1 = disp1
-        self.disp0 = disp0
+        self.disp3 = predict_disp(128)
+        self.disp2 = predict_disp(64)
+        self.disp1 = predict_disp(32)
+        self.disp0 = predict_disp(16)
 
         initilize_modules(self.modules())
         if use_pretrained_weights:
@@ -155,25 +155,25 @@ class Disp_vgg(nn.Module):
         upconv3 = self.upconv3(iconv4)  # H/8
         concat3 = torch.cat((upconv3, skip3), 1)
         iconv3  = self.iconv3(concat3)
-        disp3   = self.disp3(iconv3)
+        disp3   = self.alpha * self.disp3(iconv3)+self.beta
         disp3up = upsample_nn_nearest(disp3)
 
         upconv2 = self.upconv2(iconv3)  # H/4
         concat2 = torch.cat((upconv2, skip2, disp3up), 1)
         iconv2  = self.iconv2(concat2)
-        disp2   = self.disp2(iconv2)
+        disp2   = self.alpha * self.disp2(iconv2)+self.beta
         disp2up = upsample_nn_nearest(disp2)
 
         upconv1 = self.upconv1(iconv2)  # H/2
         concat1 = torch.cat((upconv1, skip1, disp2up), 1)
         iconv1  = self.iconv1(concat1)
-        disp1   = self.disp1(iconv1)
+        disp1   = self.alpha * self.disp1(iconv1)+self.beta
         disp1up = upsample_nn_nearest(disp1)
 
         upconv0 = self.upconv0(iconv1)
         concat0 = torch.cat((upconv0, disp1up), 1)
         iconv0  = self.iconv0(concat0)
-        disp0   = self.disp0(iconv0)
+        disp0   = self.alpha * self.disp0(iconv0)+self.beta
 
         # #check encoder net
         # print(conv1.size())
@@ -190,9 +190,9 @@ class Disp_vgg(nn.Module):
         # print(upconv0.size())
 
         if self.training:
-            return 20*disp0, 20*disp1, 20*disp2, 20*disp3
+            return disp0, disp1, disp2, disp3
         else:
-            return 20*disp0
+            return disp0
         # if self.training:
         #     return disp0, disp1, disp2, disp3
         # else:

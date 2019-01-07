@@ -19,7 +19,7 @@ from loss_functions import supervised_l1_loss, Multiscale_L2_loss, supervised_l2
 #rom loss_functions import *
 from logger import TermLogger, AverageMeter
 from tensorboardX import SummaryWriter
-import pdb#check new address
+import pdb
 
 parser = argparse.ArgumentParser(description='Structure from Motion Learner training on KITTI and CityScapes Dataset',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
