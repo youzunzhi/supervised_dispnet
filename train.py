@@ -16,14 +16,14 @@ from utils import tensor2array, save_checkpoint, save_path_formatter
 from inverse_warp import inverse_warp
 
 from loss_functions import supervised_l1_loss, Multiscale_L2_loss, supervised_l2_loss, Scale_invariant_loss, photometric_reconstruction_loss, explainability_loss, smooth_loss, compute_errors
-#rom loss_functions import *
 from logger import TermLogger, AverageMeter
 from tensorboardX import SummaryWriter
 import pdb
 
 parser = argparse.ArgumentParser(description='Structure from Motion Learner training on KITTI and CityScapes Dataset',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-
+parser.add_argument("--network", default='disp_vgg', type=str, help="network type")
+parser.add_argument('--imagenet-normalization', action='store_true', help='use imagenet parameter for normalization.')
 parser.add_argument('data', metavar='DIR',
                     help='path to dataset')
 parser.add_argument('--dataset-format', default='sequential', metavar='STR',
@@ -101,11 +101,17 @@ def main():
             output_writers.append(SummaryWriter(args.save_path/'valid'/str(i)))
 
     # Data loading code
+    if args.imagenet_normalization:
+    	normalize = custom_transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                                std=[0.229, 0.224, 0.225])
+    else:
+    	normalize = custom_transforms.Normalize(mean=[0.5, 0.5, 0.5],
+                                                std=[0.5, 0.5, 0.5])
     # normalize = custom_transforms.Normalize(mean=[0.5, 0.5, 0.5],
     #                                         std=[0.5, 0.5, 0.5])
     #normalize for pretrained
-    normalize = custom_transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                            std=[0.229, 0.224, 0.225])
+    #normalize = custom_transforms.Normalize(mean=[0.485, 0.456, 0.406],
+    #                                        std=[0.229, 0.224, 0.225])
     ##not sure transform utility and did not write down the transform for ground truth data
     train_transform = custom_transforms.Compose([
         custom_transforms.RandomHorizontalFlip(),
@@ -156,9 +162,15 @@ def main():
     # create model
     print("=> creating model")
     #changing different network
-    #disp_net = models.DispNetS().to(device)
-    #disp_net = models.Disp_res().to(device)
-    disp_net = models.Disp_vgg().to(device)
+    if args.network=='dispnet':
+    	disp_net = models.DispNetS().to(device)
+    elif args.network=='disp_res':
+    	disp_net = models.Disp_res().to(device)
+    elif args.network=='disp_vgg':
+    	disp_net = models.Disp_vgg().to(device)
+    else:
+    	raise "undefined network"
+
     output_exp = args.mask_loss_weight > 0
     if not output_exp:
         print("=> no mask loss, PoseExpnet will only output pose")

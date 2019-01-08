@@ -7,8 +7,8 @@ import torch.nn.functional as F
 #from utils.util_functions import unsqueeze_dim0_tensor
 
 def upsample_nn_nearest(x):
-    return F.upsample(x, scale_factor=2, mode='nearest')
-
+#    return F.upsample(x, scale_factor=2, mode='nearest')
+    return F.interpolate(x, scale_factor=2, mode='bilinear', align_corners=False)
 def initilize_modules(modules):
     for m in modules:
         if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d) or isinstance(m, nn.Linear):
@@ -19,31 +19,48 @@ def initilize_modules(modules):
                 torch.nn.init.constant_(m.weight, 1)
                 torch.nn.init.constant_(m.bias, 0)
 
-def Conv2dBlock2(c_in, c_out, k_size, stride, padding):
-    return nn.Sequential(
-        nn.Conv2d(c_in, c_out, k_size, stride, padding),
-        nn.LeakyReLU(0.1),
-        #nn.ReLU(inplace=True),
-        nn.Conv2d(c_out, c_out, k_size, 1, padding),
-        nn.LeakyReLU(0.1)
-        #nn.ReLU(inplace=True)
-    )
+def Conv2dBlock2(c_in, c_out, k_size, stride, padding, leaky=False):
+    if leaky:
+        return nn.Sequential(
+            nn.Conv2d(c_in, c_out, k_size, stride, padding),
+            nn.LeakyReLU(0.1),
+            nn.Conv2d(c_out, c_out, k_size, 1, padding),
+            nn.LeakyReLU(0.1)
+        )
+    else:
+        return nn.Sequential(
+        	nn.Conv2d(c_in, c_out, k_size, stride, padding),
+	        nn.ReLU(inplace=True),
+	        nn.Conv2d(c_out, c_out, k_size, 1, padding),
+	        nn.ReLU(inplace=True)
+	    )
 
 
-def Conv2dBlock1(c_in, c_out, k_size, stride, padding):
-    return nn.Sequential(
-        nn.Conv2d(c_in, c_out, k_size, stride, padding),
-        nn.LeakyReLU(0.1)
-        #nn.ReLU(inplace=True)
-    )
+def Conv2dBlock1(c_in, c_out, k_size, stride, padding, leaky=False):
+    if leaky:
+    	return nn.Sequential(
+            nn.Conv2d(c_in, c_out, k_size, stride, padding),
+            nn.LeakyReLU(0.1)
+        )
+    else:
+    	return nn.Sequential(
+            nn.Conv2d(c_in, c_out, k_size, stride, padding),
+            nn.ReLU(inplace=True)
+        )
 
 
-def ConvTranspose2dBlock1(c_in, c_out, k_size, stride, padding, output_padding):
-    return nn.Sequential(
-        nn.ConvTranspose2d(c_in, c_out, k_size, stride, padding, output_padding),
-        nn.LeakyReLU(0.1)
-        #nn.ReLU(inplace=True)
-    )
+def ConvTranspose2dBlock1(c_in, c_out, k_size, stride, padding, output_padding, leaky=False):
+
+    if leaky:
+    	return nn.Sequential(
+            nn.ConvTranspose2d(c_in, c_out, k_size, stride, padding, output_padding),
+            nn.LeakyReLU(0.1)
+        )
+    else:
+    	return nn.Sequential(
+            nn.ConvTranspose2d(c_in, c_out, k_size, stride, padding, output_padding),
+            nn.ReLU(inplace=True)
+        )
 
 def predict_disp(in_planes):
     return nn.Sequential(
@@ -193,7 +210,4 @@ class Disp_vgg(nn.Module):
             return disp0, disp1, disp2, disp3
         else:
             return disp0
-        # if self.training:
-        #     return disp0, disp1, disp2, disp3
-        # else:
-        #     return 20*disp0
+

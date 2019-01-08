@@ -1,17 +1,19 @@
 import torch
-
+import torchvision.transforms
 from scipy.misc import imresize
 from scipy.ndimage.interpolation import zoom
 import numpy as np
 from path import Path
 import argparse
 from tqdm import tqdm
-
+import pdb
 from models import DispNetS, Disp_res, Disp_vgg, PoseExpNet
 
 
 parser = argparse.ArgumentParser(description='Script for DispNet testing with corresponding groundTruth',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser.add_argument("--network", required=True, type=str, help="network type")
+parser.add_argument('--imagenet-normalization', action='store_true', help='use imagenet parameter for normalization.')
 parser.add_argument("--pretrained-dispnet", required=True, type=str, help="pretrained DispNet path")
 parser.add_argument("--pretrained-posenet", default=None, type=str, help="pretrained PoseNet path (for scale factor)")
 parser.add_argument("--img-height", default=128, type=int, help="Image height")
@@ -38,9 +40,16 @@ def main():
     elif args.gt_type == 'stillbox':
         from stillbox_eval.depth_evaluation_utils import test_framework_stillbox as test_framework
 
-    #disp_net = DispNetS().to(device)
-    #disp_net = Disp_res().to(device)
-    disp_net = Disp_vgg().to(device)
+    #choose corresponding net type
+    if args.network=='dispnet':
+    	disp_net = DispNetS().to(device)
+    elif args.network=='disp_res':
+    	disp_net = Disp_res().to(device)
+    elif args.network=='disp_vgg':
+    	disp_net = Disp_vgg().to(device)
+    else:
+    	raise "undefined network"
+
     weights = torch.load(args.pretrained_dispnet)
     disp_net.load_state_dict(weights['state_dict'])
     disp_net.eval()
@@ -83,8 +92,14 @@ def main():
         tgt_img = np.transpose(tgt_img, (2, 0, 1))
         ref_imgs = [np.transpose(img, (2,0,1)) for img in ref_imgs]
 
-        tgt_img = torch.from_numpy(tgt_img).unsqueeze(0)
-        tgt_img = ((tgt_img/255 - 0.5)/0.5).to(device)
+        tgt_img = torch.from_numpy(tgt_img)#.unsqueeze(0)
+       
+        #for different normalize method
+        if args.imagenet_normalization:
+        	normalize = torchvision.transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        else:
+        	normalize = torchvision.transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+        tgt_img = normalize(tgt_img/255).unsqueeze(0).to(device)
 
         for i, img in enumerate(ref_imgs):
             img = torch.from_numpy(img).unsqueeze(0)
