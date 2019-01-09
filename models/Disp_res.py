@@ -51,7 +51,7 @@ class Disp_res(nn.Module):
         conv_planes = [64, 64, 128, 256, 512]
         self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
         #not sure with or without BN
-        self.bn1 = nn.BatchNorm2d(64) #tinghui trick for vgg similiar struture did not have that part in order to improve
+        #self.bn1 = nn.BatchNorm2d(64) #tinghui trick for vgg similiar struture did not have that part in order to improve
         self.relu = nn.ReLU(inplace=True)
         #self.pool1 = maxpool(3)
         self.pool1=nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
@@ -87,7 +87,7 @@ class Disp_res(nn.Module):
         if stride != 1 or self.inplanes != planes * 4:
             downsample = nn.Sequential(
                 conv1x1(self.inplanes, planes * 4, stride),
-                nn.BatchNorm2d(planes * 4),
+                #nn.BatchNorm2d(planes * 4),
             )
 
         layers=[]
@@ -99,7 +99,7 @@ class Disp_res(nn.Module):
 
         return nn.Sequential(*layers)
 
-    def init_weights(self):
+    def init_weights(self, use_pretrained_weights=False):
         for m in self.modules():
             if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
                 xavier_uniform_(m.weight)
@@ -112,8 +112,8 @@ class Disp_res(nn.Module):
     def forward(self, x):
     	#encoder
         conv1 = self.conv1(x)
-        bn1   = self.bn1(conv1)
-        relu1 = self.relu(bn1)       # H/2  -   64D
+        #bn1   = self.bn1(conv1)
+        relu1 = self.relu(conv1)       # H/2  -   64D
         pool1 = self.pool1(relu1)  # H/4  -   64D
 
         conv2 = self.layer1(pool1)   # H/8  -  256D
@@ -185,11 +185,11 @@ class Bottleneck(nn.Module):
     def __init__(self, inplanes, planes, stride=1, downsample=None):
         super(Bottleneck, self).__init__()
         self.conv1 = conv1x1(inplanes, planes)
-        self.bn1 = nn.BatchNorm2d(planes)
+        #self.bn1 = nn.BatchNorm2d(planes)
         self.conv2 = conv3x3(planes, planes, stride)
-        self.bn2 = nn.BatchNorm2d(planes)
+        #self.bn2 = nn.BatchNorm2d(planes)
         self.conv3 = conv1x1(planes, planes * 4)
-        self.bn3 = nn.BatchNorm2d(planes * 4)
+        #self.bn3 = nn.BatchNorm2d(planes * 4)
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
         self.stride = stride
@@ -198,15 +198,15 @@ class Bottleneck(nn.Module):
         identity = x
 
         out = self.conv1(x)
-        out = self.bn1(out)
+        #out = self.bn1(out)
         out = self.relu(out)
 
         out = self.conv2(out)
-        out = self.bn2(out)
+        #out = self.bn2(out)
         out = self.relu(out)
 
         out = self.conv3(out)
-        out = self.bn3(out)
+        #out = self.bn3(out)
 
         if self.downsample is not None:
         	identity = self.downsample(x)

@@ -24,6 +24,7 @@ parser = argparse.ArgumentParser(description='Structure from Motion Learner trai
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("--network", default='disp_vgg', type=str, help="network type")
 parser.add_argument('--imagenet-normalization', action='store_true', help='use imagenet parameter for normalization.')
+parser.add_argument('--pretrained-encoder', action='store_true', help='use imagenet pretrained parameter.')
 parser.add_argument('data', metavar='DIR',
                     help='path to dataset')
 parser.add_argument('--dataset-format', default='sequential', metavar='STR',
@@ -107,12 +108,7 @@ def main():
     else:
     	normalize = custom_transforms.Normalize(mean=[0.5, 0.5, 0.5],
                                                 std=[0.5, 0.5, 0.5])
-    # normalize = custom_transforms.Normalize(mean=[0.5, 0.5, 0.5],
-    #                                         std=[0.5, 0.5, 0.5])
-    #normalize for pretrained
-    #normalize = custom_transforms.Normalize(mean=[0.485, 0.456, 0.406],
-    #                                        std=[0.229, 0.224, 0.225])
-    ##not sure transform utility and did not write down the transform for ground truth data
+
     train_transform = custom_transforms.Compose([
         custom_transforms.RandomHorizontalFlip(),
         #custom_transforms.RandomScaleCrop(),# test without crop
@@ -189,8 +185,8 @@ def main():
         disp_net.load_state_dict(weights['state_dict'])
     # for the use of disp_vgg with pretrained
 
-    #else:
-    #    disp_net.init_weights()
+    else:
+        disp_net.init_weights(use_pretrained_weights=args.pretrained_encoder)# decide whether use pretrained encoder
 
     cudnn.benchmark = True
     disp_net = torch.nn.DataParallel(disp_net)

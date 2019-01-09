@@ -25,11 +25,17 @@ def save_path_formatter(args, parser):
     keys_with_prefix['photo_loss_weight'] = 'p'
     keys_with_prefix['mask_loss_weight'] = 'm'
     keys_with_prefix['smooth_loss_weight'] = 's'
+    keys_with_prefix['network'] = 'network'
+    keys_with_prefix['pretrained_encoder'] = 'pretrained_encoder'
 
     for key, prefix in keys_with_prefix.items():
         value = args_dict[key]
         if not is_default(key, value):
             folder_string.append('{}{}'.format(prefix, value))
+    #for store_true option to be written into the folder name(added here)
+    if args.pretrained_encoder:
+        folder_string.append('pretrained_encoder')
+
     save_path = Path(','.join(folder_string))
     timestamp = datetime.datetime.now().strftime("%m-%d-%H:%M")
     return save_path/timestamp

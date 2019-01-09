@@ -78,7 +78,7 @@ class DispNetS(nn.Module):
         self.predict_disp2 = predict_disp(upconv_planes[5])
         self.predict_disp1 = predict_disp(upconv_planes[6])
 
-    def init_weights(self):
+    def init_weights(self, use_pretrained_weights=False):
         for m in self.modules():
             if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
                 xavier_uniform_(m.weight)

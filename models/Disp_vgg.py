@@ -119,7 +119,22 @@ class Disp_vgg(nn.Module):
         self.disp1 = predict_disp(32)
         self.disp0 = predict_disp(16)
 
-        initilize_modules(self.modules())
+        # initilize_modules(self.modules())
+        # if use_pretrained_weights:
+        #     print("loading pretrained weights downloaded from pytorch.org")
+        #     self.load_vgg_params(model_zoo.load_url('https://download.pytorch.org/models/vgg16-397923af.pth'))
+        # else:
+        #     print("do not load pretrained weights for the monocular model")
+
+    def init_weights(self, use_pretrained_weights=False):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d) or isinstance(m, nn.Linear):
+                torch.nn.init.xavier_uniform_(m.weight)
+                if m.bias is not None:
+                    torch.nn.init.constant_(m.bias, 0)
+                elif isinstance(m, nn.BatchNorm2d):
+                    torch.nn.init.constant_(m.weight, 1)
+                    torch.nn.init.constant_(m.bias, 0)
         if use_pretrained_weights:
             print("loading pretrained weights downloaded from pytorch.org")
             self.load_vgg_params(model_zoo.load_url('https://download.pytorch.org/models/vgg16-397923af.pth'))
