@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.init import xavier_uniform_, zeros_
+import torch.utils.model_zoo as model_zoo
 
 def downsample_conv(in_planes, out_planes, kernel_size=3):
     return nn.Sequential(
@@ -99,16 +100,30 @@ class Disp_res(nn.Module):
 	    #layers.append(Bottleneck(self.inplanes, planes, stride=2))
 
         return nn.Sequential(*layers)
-
+    
     def init_weights(self, use_pretrained_weights=False):
         for m in self.modules():
-            if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
-                xavier_uniform_(m.weight)
+            if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d) or isinstance(m, nn.Linear):
+                torch.nn.init.xavier_uniform_(m.weight)
                 if m.bias is not None:
-                    zeros_(m.bias)
+                    torch.nn.init.constant_(m.bias, 0)
                 elif isinstance(m, nn.BatchNorm2d):
-	                torch.nn.init.constant_(m.weight, 1)
-	                torch.nn.init.constant_(m.bias, 0)
+                    torch.nn.init.constant_(m.weight, 1)
+                    torch.nn.init.constant_(m.bias, 0)
+        if use_pretrained_weights:
+            print("loading pretrained weights downloaded from pytorch.org")
+            self.load_res_params(model_zoo.load_url('https://download.pytorch.org/models/resnet50-19c8e357.pth'))
+        else:
+            print("do not load pretrained weights for the monocular model")
+
+    def load_res_params(self, params):
+        model_dict = self.state_dict()
+        # 1. filter out unnecessary keys
+        pretrained_dict = {k: v for k, v in params.items() if k in model_dict}
+        # 2. overwrite entries in the existing state dict
+        model_dict.update(pretrained_dict) 
+        # 3. load the new state dict
+        self.load_state_dict(model_dict)
 
     def forward(self, x):
     	#encoder
@@ -213,10 +228,7 @@ class Bottleneck(nn.Module):
 
         if self.downsample is not None:
         	identity = self.downsample(x)
-        # check shape
-        #print(identity.size())
-        #print(out.size())
-        #
+            
         out += identity
         out = self.relu(out)
 

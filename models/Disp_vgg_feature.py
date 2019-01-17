@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch
 import torch.utils.model_zoo as model_zoo
 import torch.nn.functional as F
+import torchvision.models as models
 #from .model_utils import * #use . represent relative address
 #from utils.util_functions import unsqueeze_dim0_tensor
 
@@ -68,36 +69,21 @@ def predict_disp(in_planes):
         nn.Sigmoid()
     )
 
-class Disp_vgg(nn.Module):
+class Disp_vgg_feature(nn.Module):
     def __init__(self, alpha=10, beta=0.01, use_pretrained_weights=False):
-        super(Disp_vgg, self).__init__()
+        super(Disp_vgg_feature, self).__init__()
         self.use_pretrained_weights = use_pretrained_weights
         self.only_train_dec = False
         self.alpha = alpha
         self.beta = beta
 
-        cfg = [[64, 64, 'M'], [128, 128, 'M'], [256, 256, 256, 'M'], [512, 512, 512, 'M'], [512, 512, 512, 'M']]
-
-        def make_encoder_layers(cfg, in_c, batch_norm=False):
-            layers = []
-            in_channels = in_c
-            for v in cfg:
-                if v == 'M':
-                    layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
-                else:
-                    conv2d = nn.Conv2d(in_channels, v, kernel_size=3, padding=1)
-                    if batch_norm:
-                        layers += [conv2d, nn.BatchNorm2d(v), nn.ReLU(inplace=True)]
-                    else:
-                        layers += [conv2d, nn.ReLU(inplace=True)]
-                    in_channels = v
-            return nn.Sequential(*layers)
-
-        self.conv1 = make_encoder_layers(cfg[0], 3)
-        self.conv2 = make_encoder_layers(cfg[1], 64)
-        self.conv3 = make_encoder_layers(cfg[2], 128)
-        self.conv4 = make_encoder_layers(cfg[3], 256)
-        self.conv5 = make_encoder_layers(cfg[4], 512)
+        self.features = models.vgg16(pretrained=False)
+        # self.vgg16_model = models.vgg16(pretrained=True)
+        # self.conv1 = self.vgg16_model._modules['features'][0:5]
+        # self.conv2 = self.vgg16_model._modules['features'][5:10]
+        # self.conv3 = self.vgg16_model._modules['features'][10:17]
+        # self.conv4 = self.vgg16_model._modules['features'][17:24]
+        # self.conv5 = self.vgg16_model._modules['features'][24:31]
 
         self.upconv4 = ConvTranspose2dBlock1(512, 256, 4, 2, 1, 0)
         self.iconv4 = Conv2dBlock1(256 + 512, 256, 3, 1, 1)
@@ -135,31 +121,26 @@ class Disp_vgg(nn.Module):
             print("do not load pretrained weights for the monocular model")
 
     def load_vgg_params(self, params):
-        transfer_cfg = {
-            "conv1": {0: 0, 2: 2},
-            "conv2": {0: 5, 2: 7},
-            "conv3": {0: 10, 2: 12, 4: 14},
-            "conv4": {0: 17, 2: 19, 4: 21},
-            "conv5": {0: 24, 2: 26, 4: 28}
-        }
-
-        def load_with_cfg(module, cfg):
-            state_dict = {}
-            for to_id, from_id in cfg.items():
-                state_dict["{}.weight".format(to_id)] = params["features.{}.weight".format(from_id)]
-                state_dict["{}.bias".format(to_id)] = params["features.{}.bias".format(from_id)]
-            module.load_state_dict(state_dict)
-
-        for module_name, cfg in transfer_cfg.items():
-            load_with_cfg(self._modules[module_name], cfg)
+        model_dict = self._modules['features'].state_dict()
+        # 1. filter out unnecessary keys
+        pretrained_dict = {k: v for k, v in params.items() if k in model_dict}
+        # 2. overwrite entries in the existing state dict
+        model_dict.update(pretrained_dict) 
+        # 3. load the new state dict
+        self._modules['features'].load_state_dict(model_dict)
 
     def forward(self, x):
-        conv1 = self.conv1(x)
-        conv2 = self.conv2(conv1)
+        conv1 = self.features._modules['features'][0:5](x)
+        conv2 = self.features._modules['features'][5:10](conv1)
+        conv3 = self.features._modules['features'][10:17](conv2)
+        conv4 = self.features._modules['features'][17:24](conv3)
+        conv5 = self.features._modules['features'][24:31](conv4)
 
-        conv3 = self.conv3(conv2)
-        conv4 = self.conv4(conv3)
-        conv5 = self.conv5(conv4)
+        # conv1 = self.conv1(x)
+        # conv2 = self.conv2(conv1)
+        # conv3 = self.conv3(conv2)
+        # conv4 = self.conv4(conv3)
+        # conv5 = self.conv5(conv4)
 
         if self.use_pretrained_weights and self.only_train_dec:
             conv1 = conv1.detach()
@@ -204,4 +185,3 @@ class Disp_vgg(nn.Module):
             return disp0, disp1, disp2, disp3
         else:
             return disp0
-

@@ -6,19 +6,12 @@ from torch.autograd import Variable
 from inverse_warp import inverse_warp
 import pdb
 from scipy.misc import imresize
+from scipy.ndimage.interpolation import zoom
 import warnings
 warnings.filterwarnings('ignore', '.*output shape of zoom.*')
 #add supervised loss
-def supervised_l2_loss(gt_depth,depth):
-    #if type(gt_depth) not in [tuple, list]:
-     #   gt_depth = [gt_depth]
 
-    #in case of crop
-    # crop_mask = gt_depth[0] != gt_depth[0]
-    # y1,y2 = int(0.40810811 * gt_depth.size(1)), int(0.99189189 * gt_depth.size(1))
-    # x1,x2 = int(0.03594771 * gt_depth.size(2)), int(0.96405229 * gt_depth.size(2))
-    # crop_mask[y1:y2,x1:x2] = 1
-    #*****************8
+def l2_loss(gt_depth,depth):
     
     pred_depth =depth[0][:,0] #same tensor shape 4*128*416 as gt_depth(only the unscaled scale)
     loss = 0
@@ -32,16 +25,7 @@ def supervised_l2_loss(gt_depth,depth):
     loss = loss/pred_depth.size()[0] #batch size equal 4
     return loss
 
-def supervised_l1_loss(gt_depth,depth):
-    #if type(gt_depth) not in [tuple, list]:
-     #   gt_depth = [gt_depth]
-
-    #in case of crop
-    # crop_mask = gt_depth[0] != gt_depth[0]
-    # y1,y2 = int(0.40810811 * gt_depth.size(1)), int(0.99189189 * gt_depth.size(1))
-    # x1,x2 = int(0.03594771 * gt_depth.size(2)), int(0.96405229 * gt_depth.size(2))
-    # crop_mask[y1:y2,x1:x2] = 1
-    #*****************8
+def l1_loss(gt_depth,depth):
     
     pred_depth =depth[0][:,0] #same tensor shape 4*128*416 as gt_depth(only the unscaled scale)
     loss = 0
@@ -54,6 +38,25 @@ def supervised_l1_loss(gt_depth,depth):
         loss += (valid_gt-valid_pred).abs().mean()
     loss = loss/pred_depth.size()[0] #batch size equal 4
     return loss
+    
+def berhu_loss(gt_depth,depth):
+    pred_depth =depth[0][:,0] #same tensor shape 4*128*416 as gt_depth(only the unscaled scale)
+    loss = 0
+
+    for current_gt, current_pred in zip(gt_depth, pred_depth):
+        valid = (current_gt > 0) & (current_gt < 80)        
+        #valid = valid & crop_mask               
+        valid_gt = current_gt[valid]
+        valid_pred = current_pred[valid].clamp(1e-3, 80);# pdb.set_trace()
+
+        residual = (valid_gt-valid_pred).abs()
+        max_res = residual.max()
+        condition = 0.2*max_res
+        L2_loss = ((residual**2+condition**2)/(2*condition))
+        L1_loss = residual
+        loss += torch.where(residual > condition, L2_loss, L1_loss).mean()
+        
+    return loss 
 
 def Scale_invariant_loss(gt_depth,depth):
     pred_depth =depth[0][:,0] #same tensor shape 4*128*416 as gt_depth(only the unscaled scale)
@@ -70,24 +73,67 @@ def Scale_invariant_loss(gt_depth,depth):
     loss = loss/(pred_depth.size()[0])#.to(torch.float32) #batch size equal 4
     return loss
 
-def Multiscale_L2_loss(gt_depth,depth):
-    pred_depth =depth[0][:,0] #same tensor shape 4*128*416 as gt_depth(only the unscaled scale)
-    loss_all = 0
+def generate_max_pyramid(image):
+    # TODO resize area
+    pyramid = [image]
+    for i in range(3):
+        pyramid.append(F.max_pool2d(pyramid[i], 2, 2))
+    return pyramid
+
+def Multiscale_L1_loss(gt_depth,depth):
+    pred_depth_list=[]
     for i in range(len(depth)):
-        loss = 0
-        valid = None
-        gt_depth = imresize(gt_depth)#not sure how to change size of gt_depth
-        for current_gt, current_pred in zip(gt_depth, depth[i][:,0]):#change following part to change loss genre
-            valid = (current_gt > 0) & (current_gt < 80)        
-            #valid = valid & crop_mask               
-            valid_gt = current_gt[valid]
-            valid_pred = current_pred[valid].clamp(1e-3, 80);# pdb.set_trace()
-            num_valid = valid.sum().to(torch.float32)
-            #scalar = torch.cuda.tensor(0.5)/(num_valid**2)
-            #loss += ((valid_gt.to(torch.float32).abs()-valid_pred.abs())**2).mean()
-            loss += ((valid_gt.abs()-valid_pred.abs())**2).mean()
-        loss_all += loss/(pred_depth.size()[0])#.to(torch.float32) #batch size equal 4    
-    return loss_all
+        pred_depth_list.append(torch.squeeze(depth[i]))
+    gt_depth_list=generate_max_pyramid(gt_depth)#;pdb.set_trace()
+    loss = 0
+    for i in range(len(depth)):
+        current_gt, current_pred = gt_depth_list[i], pred_depth_list[i]
+        valid = (current_gt > 0) & (current_gt < 80)        
+        #valid = valid & crop_mask               
+        valid_gt = current_gt[valid]
+        valid_pred = current_pred[valid].clamp(1e-3, 80);# pdb.set_trace()
+        #loss += ((valid_gt.to(torch.float32).abs()-valid_pred.abs())**2).mean()
+        loss += (valid_gt-valid_pred).abs().mean()/(2**i)#smoothness scale variant can be other(since the smoothness one is also different)
+    return loss
+
+def Multiscale_L2_loss(gt_depth,depth):
+    pred_depth_list=[]
+    for i in range(len(depth)):
+        pred_depth_list.append(torch.squeeze(depth[i]))
+    gt_depth_list=generate_max_pyramid(gt_depth)#;pdb.set_trace()
+    loss = 0
+    for i in range(len(depth)):
+        current_gt, current_pred = gt_depth_list[i], pred_depth_list[i]
+        valid = (current_gt > 0) & (current_gt < 80)        
+        #valid = valid & crop_mask               
+        valid_gt = current_gt[valid]
+        valid_pred = current_pred[valid].clamp(1e-3, 80);# pdb.set_trace()
+        #loss += ((valid_gt.to(torch.float32).abs()-valid_pred.abs())**2).mean()
+        loss += ((valid_gt-valid_pred)**2).mean()/(2**i)#smoothness scale variant can be other(since the smoothness one is also different)
+    return loss
+     
+def Multiscale_berhu_loss(gt_depth,depth):
+    pred_depth_list=[]
+    for i in range(len(depth)):
+        pred_depth_list.append(torch.squeeze(depth[i]))
+    gt_depth_list=generate_max_pyramid(gt_depth)#;pdb.set_trace()
+
+    loss = 0
+    for i in range(len(depth)):
+        current_gt, current_pred = gt_depth_list[i], pred_depth_list[i]
+        valid = (current_gt > 0) & (current_gt < 80)        
+        #valid = valid & crop_mask               
+        valid_gt = current_gt[valid]
+        valid_pred = current_pred[valid].clamp(1e-3, 80);# pdb.set_trace()
+
+        residual = (valid_gt-valid_pred).abs()
+        max_res = residual.max()
+        condition = 0.2*max_res
+        L2_loss = ((residual**2+condition**2)/(2*condition))
+        L1_loss = residual
+        loss += torch.where(residual > condition, L2_loss, L1_loss).mean()/(2**i)
+        
+    return loss 
 
 def photometric_reconstruction_loss(tgt_img, ref_imgs, intrinsics, intrinsics_inv, depth, explainability_mask, pose, rotation_mode='euler', padding_mode='zeros'):
     def one_scale(depth, explainability_mask):
