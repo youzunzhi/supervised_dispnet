@@ -15,7 +15,7 @@ import models
 from utils import tensor2array, save_checkpoint, save_path_formatter
 from inverse_warp import inverse_warp
 
-from loss_functions import berhu_loss, Multiscale_berhu_loss, l1_loss, Multiscale_L1_loss, Multiscale_L2_loss, l2_loss, Scale_invariant_loss, photometric_reconstruction_loss, explainability_loss, smooth_loss, compute_errors
+from loss_functions import berhu_loss, Multiscale_berhu_loss, l1_loss, Multiscale_L1_loss, Multiscale_L2_loss, l2_loss, Multiscale_scale_inv_loss, Scale_invariant_loss, photometric_reconstruction_loss, explainability_loss, smooth_loss, compute_errors
 from logger import TermLogger, AverageMeter
 from tensorboardX import SummaryWriter
 import pdb
@@ -311,6 +311,10 @@ def train(args, train_loader, disp_net, pose_exp_net, optimizer, epoch_size, log
             loss_1 = berhu_loss(gt_depth, depth)    
         elif args.loss=='L2':     
             loss_1 = l2_loss(gt_depth, depth)
+        elif args.loss=='scale_inv':
+            loss_1 = Scale_invariant_loss(gt_depth, depth)
+        elif args.loss=='Multi_scale_inv':
+            loss_1 = Multiscale_scale_inv_loss(gt_depth, depth)
         else:
             raise "undefined loss"
         #loss_1 = supervised_l1_loss(gt_depth, depth)

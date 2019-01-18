@@ -21,7 +21,7 @@ def l2_loss(gt_depth,depth):
         valid_gt = current_gt[valid]
         valid_pred = current_pred[valid].clamp(1e-3, 80)#;# pdb.set_trace()
         #loss += ((valid_gt.to(torch.float32).abs()-valid_pred.abs())**2).mean()
-        loss += ((valid_gt.abs()-valid_pred.abs())**2).mean()
+        loss += ((valid_gt-valid_pred)**2).mean()
     loss = loss/pred_depth.size()[0] #batch size equal 4
     return loss
 
@@ -80,11 +80,23 @@ def generate_max_pyramid(image):
         pyramid.append(F.max_pool2d(pyramid[i], 2, 2))
     return pyramid
 
-def Multiscale_L1_loss(gt_depth,depth):
+def generate_avg_pyramid(image):
+    # TODO resize area
+    pyramid = [image]
+    for i in range(3):
+        pyramid.append(F.avg_pool2d(pyramid[i], 2, 2))
+    return pyramid
+
+def Multiscale_L1_loss(gt_depth,depth,pool_type="avg"):
     pred_depth_list=[]
     for i in range(len(depth)):
         pred_depth_list.append(torch.squeeze(depth[i]))
-    gt_depth_list=generate_max_pyramid(gt_depth)#;pdb.set_trace()
+    if pool_type=="max":
+        gt_depth_list=generate_max_pyramid(gt_depth)#;pdb.set_trace()
+    elif pool_type=="avg":
+        gt_depth_list=generate_avg_pyramid(gt_depth)#;pdb.set_trace() 
+    else:
+        raise "undefined pool type"
     loss = 0
     for i in range(len(depth)):
         current_gt, current_pred = gt_depth_list[i], pred_depth_list[i]
@@ -134,6 +146,25 @@ def Multiscale_berhu_loss(gt_depth,depth):
         loss += torch.where(residual > condition, L2_loss, L1_loss).mean()/(2**i)
         
     return loss 
+
+def Multiscale_scale_inv_loss(gt_depth,depth):
+    pred_depth_list=[]
+    for i in range(len(depth)):
+        pred_depth_list.append(torch.squeeze(depth[i]))
+    gt_depth_list=generate_max_pyramid(gt_depth)#;pdb.set_trace()
+
+    loss = 0
+    for i in range(len(depth)):
+        current_gt, current_pred = gt_depth_list[i], pred_depth_list[i]
+        valid = (current_gt > 0) & (current_gt < 80)        
+        #valid = valid & crop_mask               
+        valid_gt = current_gt[valid]
+        valid_pred = current_pred[valid].clamp(1e-3, 80);# pdb.set_trace()
+        num_valid = valid.sum().to(torch.float32)
+
+        scale_loss = ((valid_gt.abs()-valid_pred.abs())**2).mean()-torch.mul((valid_gt-valid_pred).sum()**2,0.5)/(num_valid**2)
+        loss += scale_loss/(2**i)
+    return loss
 
 def photometric_reconstruction_loss(tgt_img, ref_imgs, intrinsics, intrinsics_inv, depth, explainability_mask, pose, rotation_mode='euler', padding_mode='zeros'):
     def one_scale(depth, explainability_mask):

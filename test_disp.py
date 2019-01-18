@@ -7,7 +7,7 @@ from path import Path
 import argparse
 from tqdm import tqdm
 import pdb
-from models import DispNetS, Disp_res, Disp_vgg, PoseExpNet
+from models import DispNetS, Disp_res, Disp_vgg, Disp_vgg_feature, PoseExpNet
 
 
 parser = argparse.ArgumentParser(description='Script for DispNet testing with corresponding groundTruth',
@@ -47,7 +47,7 @@ def main():
     elif args.network=='disp_res':
     	disp_net = Disp_res().to(device)
     elif args.network=='disp_vgg':
-    	disp_net = Disp_vgg().to(device)
+    	disp_net = Disp_vgg_feature().to(device)
     else:
     	raise "undefined network"
 
