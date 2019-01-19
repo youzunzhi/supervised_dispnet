@@ -87,14 +87,23 @@ def generate_avg_pyramid(image):
         pyramid.append(F.avg_pool2d(pyramid[i], 2, 2))
     return pyramid
 
-def Multiscale_L1_loss(gt_depth,depth,pool_type="avg"):
+def generate_bilinear_pyramid(image):
+    # TODO resize area
+    pyramid = [image]
+    for i in range(3):
+        pyramid.append(F.interpolate(pyramid[i], scale_factor=0.5, mode='bilinear', align_corners=False))
+    return pyramid
+
+def Multiscale_L1_loss(gt_depth,depth,pool_type="bilinear"):
     pred_depth_list=[]
     for i in range(len(depth)):
         pred_depth_list.append(torch.squeeze(depth[i]))
     if pool_type=="max":
-        gt_depth_list=generate_max_pyramid(gt_depth)#;pdb.set_trace()
+        gt_depth_list=generate_max_pyramid(gt_depth)
     elif pool_type=="avg":
-        gt_depth_list=generate_avg_pyramid(gt_depth)#;pdb.set_trace() 
+        gt_depth_list=generate_avg_pyramid(gt_depth)
+    elif pool_type=="bilinear":
+        gt_depth_list=generate_bilinear_pyramid(gt_depth)
     else:
         raise "undefined pool type"
     loss = 0
