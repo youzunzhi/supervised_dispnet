@@ -90,8 +90,13 @@ def generate_avg_pyramid(image):
 def generate_bilinear_pyramid(image):
     # TODO resize area
     pyramid = [image]
+
+    unsqu_image = torch.unsqueeze[image,1]
+    unsqu_pyramid = [unsqu_image]
+
     for i in range(3):
-        pyramid.append(F.interpolate(pyramid[i], scale_factor=0.5, mode='bilinear', align_corners=False))
+        unsqu_pyramid.append(F.interpolate(unsqu_pyramid[i], scale_factor=0.5, mode='bilinear', align_corners=False))
+        pyramid.append(torch.squeeze(unsqu_pyramid[i+1]))
     return pyramid
 
 def Multiscale_L1_loss(gt_depth,depth,pool_type="bilinear"):
