@@ -166,6 +166,8 @@ def main():
     	disp_net = models.Disp_res().to(device)
     elif args.network=='disp_vgg':
     	disp_net = models.Disp_vgg_feature().to(device)
+    elif args.network=='disp_vgg_BN':
+        disp_net = models.Disp_vgg_BN().to(device)    
     else:
     	raise "undefined network"
 

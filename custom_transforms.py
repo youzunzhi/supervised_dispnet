@@ -73,7 +73,7 @@ class RandomHorizontalFlip(object):
 class RandomScaleCrop(object):
     """Randomly zooms images up to 15% and crop them to keep same size as before."""
 
-    def __call__(self, images, gt_depth, intrinsics):
+    def __call__(self, images, gt_depth, intrinsics, zoom=False):
         assert intrinsics is not None
         output_intrinsics = np.copy(intrinsics)
 
@@ -86,11 +86,12 @@ class RandomScaleCrop(object):
         output_intrinsics[1] *= y_scaling
         scaled_images = [imresize(im, (scaled_h, scaled_w)) for im in images]
         #data augment for ground truth depth
-        
-        scaled_gt = zoom(gt_depth, (scaled_h/in_h, scaled_w/in_w))
-        # gt_scale=np.amax(gt_depth)
-        # scaled_gt = imresize(gt_depth, (scaled_h, scaled_w))/255.0*gt_scale#test
-
+        if zoom:
+            scaled_gt = zoom(gt_depth, (scaled_h/in_h, scaled_w/in_w))
+        else:
+            gt_scale = np.amax(gt_depth)
+            scaled_gt = imresize(gt_depth, (scaled_h, scaled_w))/255.0*gt_scale#test
+            #scaled_gt = imresize(gt_depth, (scaled_h, scaled_w),interp='bilinear')/255.0*gt_scale#bilinear performs badly
         # print("gt_scale{}".format(gt_scale))
         # print("gt_depth")
         # print(gt_depth)

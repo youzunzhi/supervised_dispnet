@@ -91,7 +91,7 @@ def generate_bilinear_pyramid(image):
     # TODO resize area
     pyramid = [image]
 
-    unsqu_image = torch.unsqueeze[image,1]
+    unsqu_image = torch.unsqueeze(image,1)
     unsqu_pyramid = [unsqu_image]
 
     for i in range(3):

@@ -7,7 +7,7 @@ from path import Path
 import argparse
 from tqdm import tqdm
 import pdb
-from models import DispNetS, Disp_res, Disp_vgg, Disp_vgg_feature, PoseExpNet
+from models import DispNetS, Disp_res, Disp_vgg, Disp_vgg_feature, Disp_vgg_BN, PoseExpNet
 
 
 parser = argparse.ArgumentParser(description='Script for DispNet testing with corresponding groundTruth',
@@ -48,6 +48,8 @@ def main():
     	disp_net = Disp_res().to(device)
     elif args.network=='disp_vgg':
     	disp_net = Disp_vgg_feature().to(device)
+    elif args.network=='disp_vgg_BN':
+        disp_net = Disp_vgg_BN().to(device)
     else:
     	raise "undefined network"
 
@@ -117,10 +119,19 @@ def main():
         gt_depth = sample['gt_depth']
 
         pred_depth = 1/pred_disp
-        pred_depth_zoomed = zoom(pred_depth,
-                                 (gt_depth.shape[0]/pred_depth.shape[0],
-                                  gt_depth.shape[1]/pred_depth.shape[1])
-                                 ).clip(args.min_depth, args.max_depth)
+        use_zoom=True#option for zoom
+        
+        if use_zoom:
+            pred_depth_zoomed = zoom(pred_depth,
+                                     (gt_depth.shape[0]/pred_depth.shape[0],
+                                      gt_depth.shape[1]/pred_depth.shape[1])
+                                     ).clip(args.min_depth, args.max_depth)
+        else:# did not perform well
+            depth_scale = np.amax(pred_depth)
+            pred_depth_zoomed = (imresize(pred_depth,
+                                          (gt_depth.shape[0],
+                                           gt_depth.shape[1])
+                                          )/255.0*depth_scale).clip(args.min_depth, args.max_depth)
         if sample['mask'] is not None:
             pred_depth_zoomed = pred_depth_zoomed[sample['mask']]
             gt_depth = gt_depth[sample['mask']]

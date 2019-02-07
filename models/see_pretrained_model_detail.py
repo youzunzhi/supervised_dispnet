@@ -1,11 +1,11 @@
 import torch.utils.model_zoo as model_zoo
 import models
 
-params=model_zoo.load_url('https://download.pytorch.org/models/vgg16-397923af.pth')
+params=model_zoo.load_url('https://download.pytorch.org/models/vgg16_bn-6c64b313.pth')
 for i in params.keys():
 	print(i)
 
-model=models.Disp_vgg()
+model=models.Disp_vgg_BN()
 print(model._module)
 
 for i in model.state_dict().keys():

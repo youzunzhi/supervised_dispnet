@@ -118,3 +118,4 @@ dispnet_model_best.pth.tar
 
 #ignore checkpoint
 checkpoints/
+output/

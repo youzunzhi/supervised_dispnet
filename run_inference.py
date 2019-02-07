@@ -1,5 +1,5 @@
 import torch
-
+import torchvision.transforms
 from imageio import imread, imsave
 from scipy.misc import imresize
 import numpy as np
@@ -7,12 +7,17 @@ from path import Path
 import argparse
 from tqdm import tqdm
 
-from models import DispNetS
+#from models import DispNetS
+import models
 from utils import tensor2array
 
 parser = argparse.ArgumentParser(description='Inference script for DispNet learned with \
                                  Structure from Motion Learner inference on KITTI and CityScapes Dataset',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+parser.add_argument("--network", default='disp_vgg', type=str, help="network type")
+parser.add_argument('--imagenet-normalization', action='store_true', help='use imagenet parameter for normalization.')
+
 parser.add_argument("--output-disp", action='store_true', help="save disparity img")
 parser.add_argument("--output-depth", action='store_true', help="save depth img")
 parser.add_argument("--pretrained", required=True, type=str, help="pretrained DispNet path")
@@ -35,8 +40,18 @@ def main():
     if not(args.output_disp or args.output_depth):
         print('You must at least output one value !')
         return
+    
+    if args.network=='dispnet':
+        disp_net = models.DispNetS().to(device)
+    elif args.network=='disp_res':
+        disp_net = models.Disp_res().to(device)
+    elif args.network=='disp_vgg':
+        disp_net = models.Disp_vgg_feature().to(device)
+    elif args.network=='disp_vgg_BN':
+        disp_net = models.Disp_vgg_BN().to(device)    
+    else:
+        raise "undefined network"
 
-    disp_net = DispNetS().to(device)
     weights = torch.load(args.pretrained)
     disp_net.load_state_dict(weights['state_dict'])
     disp_net.eval()
@@ -62,8 +77,15 @@ def main():
             img = imresize(img, (args.img_height, args.img_width)).astype(np.float32)
         img = np.transpose(img, (2, 0, 1))
 
-        tensor_img = torch.from_numpy(img).unsqueeze(0)
-        tensor_img = ((tensor_img/255 - 0.5)/0.2).to(device)
+        #for different normalize method
+        if args.imagenet_normalization:
+            normalize = torchvision.transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        else:
+            normalize = torchvision.transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+ 
+        tensor_img = torch.from_numpy(img)#.unsqueeze(0)
+        # tensor_img = ((tensor_img/255 - 0.5)/0.2).to(device)% why it is 0.2
+        tensor_img = normalize(tensor_img/255).unsqueeze(0).to(device)# consider multiply by 2.5 to compensate
 
         output = disp_net(tensor_img)[0]
 
