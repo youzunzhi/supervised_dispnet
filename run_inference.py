@@ -6,7 +6,7 @@ import numpy as np
 from path import Path
 import argparse
 from tqdm import tqdm
-
+import datetime
 #from models import DispNetS
 import models
 from utils import tensor2array
@@ -48,7 +48,11 @@ def main():
     elif args.network=='disp_vgg':
         disp_net = models.Disp_vgg_feature().to(device)
     elif args.network=='disp_vgg_BN':
-        disp_net = models.Disp_vgg_BN().to(device)    
+        disp_net = models.Disp_vgg_BN().to(device)
+    elif args.network=='FCRN':
+        disp_net = models.FCRN().to(device)     
+    elif args.network=='ASPP':
+        disp_net = models.deeplab_depth().to(device)     
     else:
         raise "undefined network"
 
@@ -56,8 +60,10 @@ def main():
     disp_net.load_state_dict(weights['state_dict'])
     disp_net.eval()
 
+    timestamp = datetime.datetime.now().strftime("%m-%d-%H:%M")
+    net_name = Path(args.network)
     dataset_dir = Path(args.dataset_dir)
-    output_dir = Path(args.output_dir)
+    output_dir = Path(args.output_dir)/net_name/timestamp
     output_dir.makedirs_p()
 
     if args.dataset_list is not None:

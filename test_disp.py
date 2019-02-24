@@ -7,8 +7,10 @@ from path import Path
 import argparse
 from tqdm import tqdm
 import pdb
-from models import DispNetS, Disp_res, Disp_vgg, Disp_vgg_feature, Disp_vgg_BN, PoseExpNet
-
+from models import DispNetS, Disp_res, Disp_vgg, Disp_vgg_feature, Disp_vgg_BN, FCRN, deeplab_depth, PoseExpNet
+# for depth ground truth
+from imageio import imsave
+from utils import tensor2array
 
 parser = argparse.ArgumentParser(description='Script for DispNet testing with corresponding groundTruth',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -50,6 +52,10 @@ def main():
     	disp_net = Disp_vgg_feature().to(device)
     elif args.network=='disp_vgg_BN':
         disp_net = Disp_vgg_BN().to(device)
+    elif args.network=='FCRN':
+        disp_net = FCRN().to(device)
+    elif args.network=='ASPP':
+        disp_net = deeplab_depth().to(device)  
     else:
     	raise "undefined network"
 
@@ -132,6 +138,17 @@ def main():
                                           (gt_depth.shape[0],
                                            gt_depth.shape[1])
                                           )/255.0*depth_scale).clip(args.min_depth, args.max_depth)
+
+        #ground truth depth production
+        tensor_depth = torch.from_numpy(gt_depth).to(device)
+        #tensor_depth = tensor_depth.unsqueeze(1)
+        tensor_depth[tensor_depth == 0] = 1000
+        disp_to_show = (1/tensor_depth).clamp(0,10)#;pdb.set_trace()
+        #print(disp_to_show.size())
+        #disp_to_show = np.clip(1/tensor_depth, 0, 10)
+        disp = (255*tensor2array(disp_to_show, max_value=None, colormap='bone',channel_first=False)).astype(np.uint8)
+        imsave(Path('groundtruth')/'{}_disp.png'.format(j), disp)
+
         if sample['mask'] is not None:
             pred_depth_zoomed = pred_depth_zoomed[sample['mask']]
             gt_depth = gt_depth[sample['mask']]
@@ -152,6 +169,16 @@ def main():
         scale_factor=1
         errors[1,:,j] = compute_errors(gt_depth, pred_depth_zoomed*scale_factor)
 
+        # #ground truth depth production
+        # tensor_depth = torch.from_numpy(gt_depth).to(device)
+        # tensor_depth = tensor_depth.unsqueeze(1)
+        # tensor_depth[tensor_depth == 0] = 1000
+        # disp_to_show = (1/tensor_depth).clamp(0,10);pdb.set_trace()
+        # #print(disp_to_show.size())
+        # #disp_to_show = np.clip(1/tensor_depth, 0, 10)
+        # disp = (255*tensor2array(disp_to_show, max_value=None, colormap='bone',channel_first=False)).astype(np.uint8)
+        # imsave(Path('groundtruth')/'{}_disp.png'.format(j), disp)
+
     mean_errors = errors.mean(2)
     error_names = ['abs_rel','sq_rel','rms','log_rms','a1','a2','a3']
     if args.pretrained_posenet:
@@ -166,6 +193,17 @@ def main():
     if args.output_dir is not None:
         np.save(output_dir/'predictions.npy', predictions)
 
+
+#interpolate ground truth map
+def lin_interp(shape, xyd):
+    # taken from https://github.com/hunse/kitti
+    m, n = shape
+    ij, d = xyd[:, 1::-1], xyd[:, 2]
+    f = LinearNDInterpolator(ij, d, fill_value=0)
+    J, I = np.meshgrid(np.arange(n), np.arange(m))
+    IJ = np.vstack([I.flatten(), J.flatten()]).T
+    disparity = f(IJ).reshape(shape)
+    return disparity
 
 def compute_errors(gt, pred):
     thresh = np.maximum((gt / pred), (pred / gt))

@@ -5,7 +5,7 @@ from collections import Counter
 from path import Path
 from scipy.misc import imread
 from tqdm import tqdm
-
+from scipy.interpolate import LinearNDInterpolator
 
 class test_framework_KITTI(object):
     def __init__(self, root, test_files, seq_length=3, min_depth=1e-3, max_depth=100, step=1):
@@ -136,7 +136,7 @@ def sub2ind(matrixSize, rowSub, colSub):
     return rowSub * (n-1) + colSub - 1
 
 
-def generate_depth_map(calib_dir, velo_file_name, im_shape, cam=2):
+def generate_depth_map(calib_dir, velo_file_name, im_shape, cam=2,interp=False):#interp true just to produce ground truth
     # load calibration files
     cam2cam = read_calib_file(calib_dir/'calib_cam_to_cam.txt')
     velo2cam = read_calib_file(calib_dir/'calib_velo_to_cam.txt')
@@ -179,8 +179,25 @@ def generate_depth_map(calib_dir, velo_file_name, im_shape, cam=2):
         y_loc = int(velo_pts_im[pts[0], 1])
         depth[y_loc, x_loc] = velo_pts_im[pts, 2].min()
     depth[depth < 0] = 0
-    return depth
+    
+    #add for produce smooth ground truth
+    if interp:
+        # interpolate the depth map to fill in holes
+        depth_interp = lin_interp(im_shape, velo_pts_im)
+        return depth_interp
+    else:
+        return depth
 
+#interpolate ground truth map
+def lin_interp(shape, xyd):
+    # taken from https://github.com/hunse/kitti
+    m, n = shape
+    ij, d = xyd[:, 1::-1], xyd[:, 2]
+    f = LinearNDInterpolator(ij, d, fill_value=0)
+    J, I = np.meshgrid(np.arange(n), np.arange(m))
+    IJ = np.vstack([I.flatten(), J.flatten()]).T
+    disparity = f(IJ).reshape(shape)
+    return disparity
 
 def generate_mask(gt_depth, min_depth, max_depth):
     mask = np.logical_and(gt_depth > min_depth,

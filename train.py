@@ -167,7 +167,11 @@ def main():
     elif args.network=='disp_vgg':
     	disp_net = models.Disp_vgg_feature().to(device)
     elif args.network=='disp_vgg_BN':
-        disp_net = models.Disp_vgg_BN().to(device)    
+        disp_net = models.Disp_vgg_BN().to(device)
+    elif args.network=='FCRN':
+        disp_net = models.FCRN().to(device)  
+    elif args.network=='ASPP':
+        disp_net = models.deeplab_depth().to(device)  
     else:
     	raise "undefined network"
 

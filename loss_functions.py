@@ -33,7 +33,7 @@ def l1_loss(gt_depth,depth):
         valid = (current_gt > 0) & (current_gt < 80)        
         #valid = valid & crop_mask               
         valid_gt = current_gt[valid]
-        valid_pred = current_pred[valid].clamp(1e-3, 80);# pdb.set_trace()
+        valid_pred = current_pred[valid].clamp(1e-3, 80)#; pdb.set_trace()
         #loss += ((valid_gt.to(torch.float32).abs()-valid_pred.abs())**2).mean()
         loss += (valid_gt-valid_pred).abs().mean()
     loss = loss/pred_depth.size()[0] #batch size equal 4
@@ -55,7 +55,7 @@ def berhu_loss(gt_depth,depth):
         L2_loss = ((residual**2+condition**2)/(2*condition))
         L1_loss = residual
         loss += torch.where(residual > condition, L2_loss, L1_loss).mean()
-        
+    loss = loss/pred_depth.size()[0] #batch size equal 4    
     return loss 
 
 def Scale_invariant_loss(gt_depth,depth):
@@ -126,7 +126,7 @@ def Multiscale_L2_loss(gt_depth,depth):
     pred_depth_list=[]
     for i in range(len(depth)):
         pred_depth_list.append(torch.squeeze(depth[i]))
-    gt_depth_list=generate_max_pyramid(gt_depth)#;pdb.set_trace()
+    gt_depth_list=generate_bilinear_pyramid(gt_depth)#;pdb.set_trace()
     loss = 0
     for i in range(len(depth)):
         current_gt, current_pred = gt_depth_list[i], pred_depth_list[i]
@@ -142,7 +142,7 @@ def Multiscale_berhu_loss(gt_depth,depth):
     pred_depth_list=[]
     for i in range(len(depth)):
         pred_depth_list.append(torch.squeeze(depth[i]))
-    gt_depth_list=generate_max_pyramid(gt_depth)#;pdb.set_trace()
+    gt_depth_list=generate_bilinear_pyramid(gt_depth)#;pdb.set_trace()
 
     loss = 0
     for i in range(len(depth)):
@@ -165,7 +165,7 @@ def Multiscale_scale_inv_loss(gt_depth,depth):
     pred_depth_list=[]
     for i in range(len(depth)):
         pred_depth_list.append(torch.squeeze(depth[i]))
-    gt_depth_list=generate_max_pyramid(gt_depth)#;pdb.set_trace()
+    gt_depth_list=generate_bilinear_pyramid(gt_depth)#;pdb.set_trace()
 
     loss = 0
     for i in range(len(depth)):
@@ -243,6 +243,7 @@ def smooth_loss(pred_map):
     weight = 1.
 
     for scaled_map in pred_map:
+        #scaled_map=scaled_map.clamp(1e-3,80)
         dx, dy = gradient(scaled_map)
         dx2, dxdy = gradient(dx)
         dydx, dy2 = gradient(dy)
