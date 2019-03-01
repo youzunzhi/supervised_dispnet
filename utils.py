@@ -5,7 +5,7 @@ import torch
 from path import Path
 import datetime
 from collections import OrderedDict
-
+import pdb
 
 def save_path_formatter(args, parser):
     def is_default(key, value):
@@ -42,9 +42,10 @@ def save_path_formatter(args, parser):
 
 
 def tensor2array(tensor, max_value=255, colormap='rainbow', channel_first=True):
-    tensor = tensor.detach().cpu()
+    tensor = tensor.detach().cpu() #;pdb.set_trace()
     if max_value is None:
         max_value = tensor.max().item()
+
     if tensor.ndimension() == 2 or tensor.size(0) == 1:
         try:
             import cv2

@@ -10,6 +10,8 @@ import datetime
 #from models import DispNetS
 import models
 from utils import tensor2array
+import pdb
+from PIL import Image, ImageEnhance
 
 parser = argparse.ArgumentParser(description='Inference script for DispNet learned with \
                                  Structure from Motion Learner inference on KITTI and CityScapes Dataset',
@@ -40,7 +42,11 @@ def main():
     if not(args.output_disp or args.output_depth):
         print('You must at least output one value !')
         return
+
+    # load ground truth avg for scale
+    scale_factor = np.load('gt_avg_test.npy')
     
+
     if args.network=='dispnet':
         disp_net = models.DispNetS().to(device)
     elif args.network=='disp_res':
@@ -73,8 +79,11 @@ def main():
         test_files = sum([dataset_dir.files('*.{}'.format(ext)) for ext in args.img_exts], [])
 
     print('{} files to test'.format(len(test_files)))
+    
+    #save max for get depth from picture
+    pred_max=np.zeros(len(test_files))
 
-    for file in tqdm(test_files):
+    for j, file in enumerate(tqdm(test_files)):
 
         img = imread(file).astype(np.float32)
 
@@ -94,15 +103,32 @@ def main():
         tensor_img = normalize(tensor_img/255).unsqueeze(0).to(device)# consider multiply by 2.5 to compensate
 
         output = disp_net(tensor_img)[0]
+        
+        #add normalize from median of ground truth 
+        pred = disp_net(tensor_img).cpu().numpy()[0,0];#pdb.set_trace()
+        output = output*(scale_factor[j]/np.median(pred))
+        #save pred_max for recover depth from pic
+        pred_max[j] = np.amax(pred) 
 
         if args.output_disp:
             disp = (255*tensor2array(output, max_value=None, colormap='bone', channel_first=False)).astype(np.uint8)
-            imsave(output_dir/'{}_disp{}'.format(file.namebase,file.ext), disp)
+            #check comparison
+            #disp = (tensor2array(output, max_value=None, colormap='bone', channel_first=False)).astype(np.uint8)
+            imsave(output_dir/'{}_disp{}'.format(j,file.ext), disp)
+
+            #add contrast
+            im=Image.open(output_dir/'{}_disp{}'.format(j,file.ext))
+            enhancer = ImageEnhance.Contrast(im)
+            enhanced_im=enhancer.enhance(4.0)
+            enhanced_im.save(output_dir/'{}_en{}'.format(j,file.ext))
+
         if args.output_depth:
             depth = 1/output
             depth = (255*tensor2array(depth, max_value=10, colormap='rainbow', channel_first=False)).astype(np.uint8)
             imsave(output_dir/'{}_depth{}'.format(file.namebase,file.ext), depth)
-
+    
+    output_file = Path('pred_max_test')
+    np.save(output_file, pred_max)
 
 if __name__ == '__main__':
     main()

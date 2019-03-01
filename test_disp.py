@@ -88,6 +88,9 @@ def main():
         output_dir = Path(args.output_dir)
         output_dir.makedirs_p()
 
+    #save gt_avg for run inference
+    gt_scale = np.zeros(len(framework))
+
     for j, sample in enumerate(tqdm(framework)):
         tgt_img = sample['tgt']
 
@@ -124,7 +127,7 @@ def main():
 
         gt_depth = sample['gt_depth']
 
-        pred_depth = 1/pred_disp
+        pred_depth = 1/pred_disp#;pdb.set_trace()
         use_zoom=True#option for zoom
         
         if use_zoom:
@@ -132,22 +135,34 @@ def main():
                                      (gt_depth.shape[0]/pred_depth.shape[0],
                                       gt_depth.shape[1]/pred_depth.shape[1])
                                      ).clip(args.min_depth, args.max_depth)
-        else:# did not perform well
-            depth_scale = np.amax(pred_depth)
-            pred_depth_zoomed = (imresize(pred_depth,
-                                          (gt_depth.shape[0],
-                                           gt_depth.shape[1])
-                                          )/255.0*depth_scale).clip(args.min_depth, args.max_depth)
 
         #ground truth depth production
         tensor_depth = torch.from_numpy(gt_depth).to(device)
         #tensor_depth = tensor_depth.unsqueeze(1)
         tensor_depth[tensor_depth == 0] = 1000
-        disp_to_show = (1/tensor_depth).clamp(0,10)#;pdb.set_trace()
+        disp_to_show = (1/tensor_depth).clamp(0,10)
+        #;pdb.set_trace()
         #print(disp_to_show.size())
         #disp_to_show = np.clip(1/tensor_depth, 0, 10)
-        disp = (255*tensor2array(disp_to_show, max_value=None, colormap='bone',channel_first=False)).astype(np.uint8)
-        imsave(Path('groundtruth')/'{}_disp.png'.format(j), disp)
+
+#********************************************        
+        # x=(disp_to_show > 0.002)
+        # x_delete_edge=x[1:374,1:1241]
+        # disp_to_show[0:373,0:1240]=disp_to_show[x_delete_edge]
+        # disp_to_show[0:373,1:1241]=disp_to_show[x_delete_edge]
+        # disp_to_show[0:373,2:1242]=disp_to_show[x_delete_edge]
+        # disp_to_show[1:374,0:1240]=disp_to_show[x_delete_edge]
+        # #disp_to_show[1:374,1:1241]=disp_to_show[x_delete_edge]
+        # disp_to_show[1:374,2:1242]=disp_to_show[x_delete_edge]
+        # disp_to_show[2:375,0:1240]=disp_to_show[x_delete_edge]
+        # disp_to_show[2:375,1:1241]=disp_to_show[x_delete_edge]
+        # disp_to_show[2:375,2:1242]=disp_to_show[x_delete_edge]
+        # #wait for add in
+#*************************************************
+
+
+        # disp = (255*tensor2array(disp_to_show, max_value=None, colormap='bone',channel_first=False)).astype(np.uint8)
+        # imsave(Path('groundtruth')/'{}_disp.png'.format(j), disp)
 
         if sample['mask'] is not None:
             pred_depth_zoomed = pred_depth_zoomed[sample['mask']]
@@ -165,8 +180,11 @@ def main():
             scale_factor = sample['displacement'] / mean_displacement_magnitude
             errors[0,:,j] = compute_errors(gt_depth, pred_depth_zoomed*scale_factor)
 
-       # scale_factor = np.median(gt_depth)/np.median(pred_depth_zoomed)
-        scale_factor=1
+        #scale_factor = np.median(gt_depth)/np.median(pred_depth_zoomed)
+
+        gt_scale[j] = np.median(gt_depth)
+
+        scale_factor = 1
         errors[1,:,j] = compute_errors(gt_depth, pred_depth_zoomed*scale_factor)
 
         # #ground truth depth production
@@ -192,6 +210,10 @@ def main():
 
     if args.output_dir is not None:
         np.save(output_dir/'predictions.npy', predictions)
+    
+    #save to check whether avg is needed in the prediction 
+    output_file = Path('gt_avg_test')
+    np.save(output_file, gt_scale)
 
 
 #interpolate ground truth map

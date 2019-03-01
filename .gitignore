@@ -120,3 +120,5 @@ dispnet_model_best.pth.tar
 checkpoints/
 output/
 groundtruth/
+#ignore data
+*.npy
