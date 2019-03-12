@@ -1,7 +1,4 @@
-#evaluate from npy
-import torch
-import torchvision.transforms
-from scipy.misc import imresize,imread
+from scipy.misc.pilutil import imresize,imread
 from scipy.ndimage.interpolation import zoom
 import numpy as np
 from path import Path
@@ -10,7 +7,7 @@ from tqdm import tqdm
 import pdb
 from collections import Counter
 # for depth ground truth
-from imageio import imsave
+#from imageio import imsave
 
 
 parser = argparse.ArgumentParser(description='Script for DispNet testing with corresponding groundTruth',
@@ -28,10 +25,10 @@ parser.add_argument("--dataset-list", default=None, type=str, help="Dataset list
 parser.add_argument("--output-dir", default=None, type=str, help="Output directory for saving predictions in a big 3D numpy file")
 parser.add_argument("--img-exts", default=['png', 'jpg', 'bmp'], nargs='*', type=str, help="images extensions to glob")
 
-device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+#device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
 
-@torch.no_grad()
+#@torch.no_grad()
 def main():
     args = parser.parse_args()
     #consistant with test_disp
@@ -51,7 +48,13 @@ def main():
 
     #load prediction
     prediction = np.load(args.prediction_dir)#;pdb.set_trace()
-     
+    
+    #setup for record ground truth
+    gt_depth_record=np.zeros((len(test_files),375,1242))
+    mask_record=np.zeros((len(test_files),375,1242))
+    pred_record=np.zeros((len(test_files),375,1242))
+
+
     for j, sample in enumerate(tqdm(framework)):
         #read disparity from image
         pred_depth = prediction[j]#;pdb.set_trace()
@@ -62,14 +65,72 @@ def main():
                                  (gt_depth.shape[0]/pred_depth.shape[0],
                                   gt_depth.shape[1]/pred_depth.shape[1])
                                  ).clip(args.min_depth, args.max_depth)
+       
+        #*********************************************
+        #record zoomed_pred
+        
+        h = pred_depth_zoomed.shape[0]
+        w = pred_depth_zoomed.shape[1]
+        if h >375 and w >1242:
+        	pred_record[j,:,:] = pred_depth_zoomed[0:375,0:1242]
+        elif h>375 and w <1242:
+        	pred_record[j,:,0:w] = pred_depth_zoomed[0:375,:]
+        elif h<375 and w >1242:
+        	pred_record[j,0:h,:] = pred_depth_zoomed[:,0:1242]
+        else:
+        	pred_record[j,0:h,0:w] = pred_depth_zoomed
+        #*********************************************
 
         if sample['mask'] is not None:
             pred_depth_zoomed = pred_depth_zoomed[sample['mask']]
-            gt_depth = gt_depth[sample['mask']]
+            gt_depth = gt_depth[sample['mask']]#;pdb.set_trace()
+
+        #*************************************************************
+        
+        #record gt_depth
+        
+        h = sample['gt_depth'].shape[0]
+        w = sample['gt_depth'].shape[1]
+        if h >375 and w >1242:
+        	gt_depth_record[j,:,:] = sample['gt_depth'][0:375,0:1242]
+        elif h>375 and w <1242:
+        	gt_depth_record[j,:,0:w] = sample['gt_depth'][0:375,:]
+        elif h<375 and w >1242:
+        	gt_depth_record[j,0:h,:] = sample['gt_depth'][:,0:1242]
+        else:
+        	gt_depth_record[j,0:h,0:w] = sample['gt_depth']
+        
+
+        # #record zoomed_pred
+        
+        # h = pred_depth_zoomed.shape[0]
+        # w = pred_depth_zoomed.shape[1]
+        # if h >375 and w >1242:
+        # 	pred_record[j,:,:] = pred_depth_zoomed[0:375,0:1242]
+        # elif h>375 and w <1242:
+        # 	pred_record[j,:,0:w] = pred_depth_zoomed[0:375,:]
+        # elif h<375 and w >1242:
+        # 	pred_record[j,0:h,:] = pred_depth_zoomed[:,0:1242]
+        # else:
+        # 	pred_record[j,0:h,0:w] = pred_depth_zoomed
+
+        #record mask
+        h = sample['mask'].shape[0]
+        w = sample['mask'].shape[1]
+
+        if h >375 and w >1242:
+        	mask_record[j,:,:] = sample['mask'][0:375,0:1242]
+        elif h>375 and w <1242:
+        	mask_record[j,:,0:w] = sample['mask'][0:375,:]
+        elif h<375 and w >1242:
+        	mask_record[j,0:h,:] = sample['mask'][:,0:1242]
+        else:
+        	mask_record[j,0:h,0:w] = sample['mask']
+        #*************************************************************
 
         scale_factor = np.median(gt_depth)/np.median(pred_depth_zoomed)
         scale_factor = 1
-        errors[1,:,j] = compute_errors(gt_depth, pred_depth_zoomed*scale_factor)
+        errors[1,:,j] = compute_errors(gt_depth, pred_depth_zoomed*scale_factor)#;pdb.set_trace()
 
     mean_errors = errors.mean(2)
     error_names = ['abs_rel','sq_rel','rms','log_rms','a1','a2','a3']
@@ -77,6 +138,14 @@ def main():
     print("Results with scale factor determined by GT/prediction ratio (like the original paper) : ")
     print("{:>10}, {:>10}, {:>10}, {:>10}, {:>10}, {:>10}, {:>10}".format(*error_names))
     print("{:10.4f}, {:10.4f}, {:10.4f}, {:10.4f}, {:10.4f}, {:10.4f}, {:10.4f}".format(*mean_errors[1]))
+    
+    output_file = Path('gt_depth')
+    np.save(output_file, gt_depth_record)
+    output_file = Path('pred_zoomed')
+    np.save(output_file, pred_record)
+    output_file = Path('mask')
+    np.save(output_file, mask_record)
+
 
 #interpolate ground truth map
 def lin_interp(shape, xyd):
