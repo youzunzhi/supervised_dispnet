@@ -92,6 +92,9 @@ Disparity evaluation is avalaible
 ```bash
 python3 test_disp.py --pretrained-dispnet /path/to/dispnet --pretrained-posenet /path/to/posenet --dataset-dir /path/to/KITTI_raw --dataset-list /path/to/test_files_list
 ```
+eg. ```python3 new_test_disp.py --pretrained-dispnet checkpoints/kitti_sfm,epoch_size1000,seq5,s3.0,networkdisp_res,pretrained_encoderTrue,lossL1/02-21-10:43/dispnet_model_best.pth.tar --dataset-dir /scratch_net/kronos/zfang/dataset_kitti/kitti_original/kitti/ --dataset-list kitti_eval/test_files_eigen.txt --network disp_res --imagenet-normalization```
+
+notice that imagenet-normalization is quite important since the encoder is pretrained
 
 Test file list is available in kitti eval folder. To get fair comparison with [Original paper evaluation code](https://github.com/tinghuiz/SfMLearner/blob/master/kitti_eval/eval_depth.py), don't specify a posenet. However, if you do,  it will be used to solve the scale factor ambiguity, the only ground truth used to get it will be vehicle speed which is far more acceptable for real conditions quality measurement, but you will obviously get worse results.
 
