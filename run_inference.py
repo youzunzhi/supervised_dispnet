@@ -112,7 +112,7 @@ def main():
 
         if args.output_disp:
             disp = (255*tensor2array(output, max_value=50, colormap='bone', channel_first=False)).astype(np.uint8)
-            #max_value 50 is like the clamp(this colormap is significantly influenced by small value, thus sometimes 
+            #max_value 50 or 80 is like the clamp(this colormap is significantly influenced by small value, thus sometimes 
             #the relative value that divide by max depth would be influenced by the max depth predicted over the 
             #middle of lane(due to the imprecise max prediction))
             

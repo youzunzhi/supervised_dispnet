@@ -172,6 +172,8 @@ def main():
         disp_net = models.FCRN().to(device)  
     elif args.network=='ASPP':
         disp_net = models.deeplab_depth().to(device)  
+    elif args.network=='disp_res_101':
+        disp_net = models.Disp_res_101().to(device)
     else:
     	raise "undefined network"
 

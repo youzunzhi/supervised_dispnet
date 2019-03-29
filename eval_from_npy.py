@@ -139,12 +139,12 @@ def main():
     print("{:>10}, {:>10}, {:>10}, {:>10}, {:>10}, {:>10}, {:>10}".format(*error_names))
     print("{:10.4f}, {:10.4f}, {:10.4f}, {:10.4f}, {:10.4f}, {:10.4f}, {:10.4f}".format(*mean_errors[1]))
     
-    output_file = Path('gt_depth')
-    np.save(output_file, gt_depth_record)
-    output_file = Path('pred_zoomed')
-    np.save(output_file, pred_record)
-    output_file = Path('mask')
-    np.save(output_file, mask_record)
+    # output_file = Path('gt_depth')
+    # np.save(output_file, gt_depth_record)
+    # output_file = Path('pred_zoomed')
+    # np.save(output_file, pred_record)
+    # output_file = Path('mask')
+    # np.save(output_file, mask_record)
 
 
 #interpolate ground truth map

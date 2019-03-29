@@ -136,11 +136,12 @@ def main():
                                       gt_depth.shape[1]/pred_depth.shape[1])
                                      ).clip(args.min_depth, args.max_depth)
 
-        #ground truth depth production
-        tensor_depth = torch.from_numpy(gt_depth).to(device)
-        #tensor_depth = tensor_depth.unsqueeze(1)
-        tensor_depth[tensor_depth == 0] = 1000
-        disp_to_show = (1/tensor_depth).clamp(0,10)
+        # #ground truth depth production
+        # tensor_depth = torch.from_numpy(gt_depth).to(device)
+        # #tensor_depth = tensor_depth.unsqueeze(1)
+        # tensor_depth[tensor_depth == 0] = 1000
+        # disp_to_show = (1/tensor_depth).clamp(0,10)
+        
         #;pdb.set_trace()
         #print(disp_to_show.size())
         #disp_to_show = np.clip(1/tensor_depth, 0, 10)
@@ -182,7 +183,7 @@ def main():
 
         #scale_factor = np.median(gt_depth)/np.median(pred_depth_zoomed)
 
-        gt_scale[j] = np.median(gt_depth)
+        #gt_scale[j] = np.median(gt_depth)
 
         scale_factor = 1
         errors[1,:,j] = compute_errors(gt_depth, pred_depth_zoomed*scale_factor)
@@ -212,8 +213,8 @@ def main():
         np.save(output_dir/'predictions.npy', predictions)
     
     #save to check whether avg is needed in the prediction 
-    output_file = Path('gt_avg_test')
-    np.save(output_file, gt_scale)
+    #output_file = Path('gt_avg_test')
+    #np.save(output_file, gt_scale)
 
 
 #interpolate ground truth map

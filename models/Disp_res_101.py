@@ -40,14 +40,14 @@ def maxpool(kernel_size):
     p = (kernel_size - 1)//2
     return nn.MaxPool2d(kernel_size, stride=None, padding=p)
 
-class Disp_res(nn.Module):
+class Disp_res_101(nn.Module):
 
     def __init__(self, alpha=10, beta=0.01):
-        super(Disp_res, self).__init__()
+        super(Disp_res_101, self).__init__()
         #not sure about the setting of these two parameter since the left-right consistancy one use alpha 0.3 and beta 0.01
         self.alpha = alpha
         self.beta = beta
-        self.only_train_dec = True
+        self.only_train_dec = False
         #resnet encoder
         self.inplanes = 64
         conv_planes = [64, 64, 128, 256, 512]
@@ -60,7 +60,7 @@ class Disp_res(nn.Module):
         self.pool1=nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         self.layer1 = self.resblock(conv_planes[1], 3)
         self.layer2 = self.resblock(conv_planes[2], 4, stride=2)
-        self.layer3 = self.resblock(conv_planes[3], 6, stride=2)
+        self.layer3 = self.resblock(conv_planes[3], 23, stride=2)#resnet-101
         self.layer4 = self.resblock(conv_planes[4], 3, stride=2)
         
         #decode
@@ -113,7 +113,7 @@ class Disp_res(nn.Module):
                     torch.nn.init.constant_(m.bias, 0)
         if use_pretrained_weights:
             print("loading pretrained weights downloaded from pytorch.org")
-            self.load_res_params(model_zoo.load_url('https://download.pytorch.org/models/resnet50-19c8e357.pth'))
+            self.load_res_params(model_zoo.load_url('https://download.pytorch.org/models/resnet101-5d3b4d8f.pth'))
         else:
             print("do not load pretrained weights for the monocular model")
 
@@ -243,5 +243,3 @@ class Bottleneck(nn.Module):
 
         return out
 #residual block
-
-

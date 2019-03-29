@@ -4,14 +4,15 @@ import torchvision
 import pdb
 import torch
 
-params=model_zoo.load_url('https://download.pytorch.org/models/vgg16_bn-6c64b313.pth')
-for i in params.keys():
-	print(i)
-model_vgg = torchvision.models.vgg16_bn()
-#model_vgg_feature = models.Disp_vgg_feature()
+# params=model_zoo.load_url('https://download.pytorch.org/models/vgg16_bn-6c64b313.pth')
+# for i in params.keys():
+# 	print(i)
+# model_vgg = torchvision.models.vgg16_bn()
+
+model_res = models.Disp_res()
 #print(model_vgg.children)
-print(model_vgg._modules)
-print(model_vgg._modules['features'])#;pdb.set_trace()
+print(model_res.parameters());pdb.set_trace()
+#print(model_vgg._modules['features'])#;pdb.set_trace()
 #model=models.Disp_vgg()
 
 #print(model.state_dict)

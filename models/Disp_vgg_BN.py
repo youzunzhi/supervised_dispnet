@@ -8,8 +8,8 @@ import torchvision.models as models
 #from utils.util_functions import unsqueeze_dim0_tensor
 
 def upsample_nn_nearest(x):
-#    return F.upsample(x, scale_factor=2, mode='nearest')
-    return F.interpolate(x, scale_factor=2, mode='bilinear', align_corners=False)
+    return F.upsample(x, scale_factor=2, mode='nearest')
+#    return F.interpolate(x, scale_factor=2, mode='bilinear', align_corners=False)
 def initilize_modules(modules):
     for m in modules:
         if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d) or isinstance(m, nn.Linear):
@@ -20,7 +20,7 @@ def initilize_modules(modules):
                 torch.nn.init.constant_(m.weight, 1)
                 torch.nn.init.constant_(m.bias, 0)
 
-def Conv2dBlock2(c_in, c_out, k_size, stride, padding, leaky=False):
+def Conv2dBlock2(c_in, c_out, k_size, stride, padding, leaky=True):
     if leaky:
         return nn.Sequential(
             nn.Conv2d(c_in, c_out, k_size, stride, padding),
@@ -37,7 +37,7 @@ def Conv2dBlock2(c_in, c_out, k_size, stride, padding, leaky=False):
 	    )
 
 
-def Conv2dBlock1(c_in, c_out, k_size, stride, padding, leaky=False):
+def Conv2dBlock1(c_in, c_out, k_size, stride, padding, leaky=True):
     if leaky:
     	return nn.Sequential(
             nn.Conv2d(c_in, c_out, k_size, stride, padding),
@@ -50,7 +50,7 @@ def Conv2dBlock1(c_in, c_out, k_size, stride, padding, leaky=False):
         )
 
 
-def ConvTranspose2dBlock1(c_in, c_out, k_size, stride, padding, output_padding, leaky=False):
+def ConvTranspose2dBlock1(c_in, c_out, k_size, stride, padding, output_padding, leaky=True):
 
     if leaky:
     	return nn.Sequential(
@@ -70,9 +70,8 @@ def predict_disp(in_planes):
     )
 
 class Disp_vgg_BN(nn.Module):
-    def __init__(self, alpha=10, beta=0.01, use_pretrained_weights=False):
+    def __init__(self, alpha=10, beta=0.01):
         super(Disp_vgg_BN, self).__init__()
-        self.use_pretrained_weights = use_pretrained_weights
         self.only_train_dec = False
         self.alpha = alpha
         self.beta = beta
@@ -142,7 +141,7 @@ class Disp_vgg_BN(nn.Module):
         # conv4 = self.conv4(conv3)
         # conv5 = self.conv5(conv4)
 
-        if self.use_pretrained_weights and self.only_train_dec:
+        if self.only_train_dec:
             conv1 = conv1.detach()
             conv2 = conv2.detach()
             conv3 = conv3.detach()
