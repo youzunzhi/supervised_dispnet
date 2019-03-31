@@ -122,3 +122,8 @@ output/
 groundtruth/
 #ignore data
 *.npy
+#ignore sftp setting
+#kronos_sftp
+
+#
+*.DS_Store

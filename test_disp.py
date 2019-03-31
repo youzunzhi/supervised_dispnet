@@ -7,7 +7,8 @@ from path import Path
 import argparse
 from tqdm import tqdm
 import pdb
-from models import DispNetS, Disp_res, Disp_vgg, Disp_vgg_feature, Disp_vgg_BN, FCRN, deeplab_depth, PoseExpNet
+#from models import DispNetS, Disp_res, Disp_vgg, Disp_vgg_feature, Disp_vgg_BN, FCRN, deeplab_depth, PoseExpNet
+import models
 # for depth ground truth
 from imageio import imsave
 from utils import tensor2array
@@ -45,17 +46,19 @@ def main():
 
     #choose corresponding net type
     if args.network=='dispnet':
-    	disp_net = DispNetS().to(device)
+    	disp_net = models.DispNetS().to(device)
     elif args.network=='disp_res':
-    	disp_net = Disp_res().to(device)
+    	disp_net = models.Disp_res().to(device)
     elif args.network=='disp_vgg':
-    	disp_net = Disp_vgg_feature().to(device)
+    	disp_net = models.Disp_vgg_feature().to(device)
     elif args.network=='disp_vgg_BN':
-        disp_net = Disp_vgg_BN().to(device)
+        disp_net = models.Disp_vgg_BN().to(device)
     elif args.network=='FCRN':
-        disp_net = FCRN().to(device)
+        disp_net = models.FCRN().to(device)
     elif args.network=='ASPP':
-        disp_net = deeplab_depth().to(device)  
+        disp_net = models.deeplab_depth().to(device)
+    elif args.network=='disp_res_101':
+        disp_net = models.Disp_res_101().to(device)  
     else:
     	raise "undefined network"
 
