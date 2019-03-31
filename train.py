@@ -323,6 +323,8 @@ def train(args, train_loader, disp_net, pose_exp_net, optimizer, epoch_size, log
             loss_1 = Scale_invariant_loss(gt_depth, depth)
         elif args.loss=='Multi_scale_inv':
             loss_1 = Multiscale_scale_inv_loss(gt_depth, depth)
+        elif args.loss=='DORN':
+            loss_1 = DORN(gt_depth, depth)
         else:
             raise "undefined loss"
         #loss_1 = supervised_l1_loss(gt_depth, depth)
