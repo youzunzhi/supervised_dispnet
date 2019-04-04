@@ -8,3 +8,4 @@ from .FCRN import FCRN
 from .ASPP import deeplab_depth
 from .Disp_res_101 import Disp_res_101
 from .DORN import DORN
+from .Disp_vgg_BN_DORN import Disp_vgg_BN_DORN

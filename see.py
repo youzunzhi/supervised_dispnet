@@ -3,15 +3,17 @@ import models
 import torchvision
 import pdb
 import torch
+import torchvision.models
 
-# params=model_zoo.load_url('https://download.pytorch.org/models/vgg16_bn-6c64b313.pth')
-# for i in params.keys():
-# 	print(i)
-# model_vgg = torchvision.models.vgg16_bn()
+params=model_zoo.load_url('https://download.pytorch.org/models/resnet101-5d3b4d8f.pth')
+for i in params.keys():
+	print(i)
+model_vgg = torchvision.models.resnet101();pdb.set_trace()
 
-model_res = models.Disp_res()
+
 #print(model_vgg.children)
-print(model_res.parameters());pdb.set_trace()
+
+
 #print(model_vgg._modules['features'])#;pdb.set_trace()
 #model=models.Disp_vgg()
 

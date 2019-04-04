@@ -15,10 +15,12 @@ import models
 from utils import tensor2array, save_checkpoint, save_path_formatter
 from inverse_warp import inverse_warp
 
-from loss_functions import berhu_loss, Multiscale_berhu_loss, l1_loss, Multiscale_L1_loss, Multiscale_L2_loss, l2_loss, Multiscale_scale_inv_loss, Scale_invariant_loss, photometric_reconstruction_loss, explainability_loss, smooth_loss, compute_errors
+from loss_functions import DORN, berhu_loss, Multiscale_berhu_loss, l1_loss, Multiscale_L1_loss, Multiscale_L2_loss, l2_loss, Multiscale_scale_inv_loss, Scale_invariant_loss, photometric_reconstruction_loss, explainability_loss, smooth_loss, compute_errors
 from logger import TermLogger, AverageMeter
 from tensorboardX import SummaryWriter
 import pdb
+
+import utils
 
 parser = argparse.ArgumentParser(description='Structure from Motion Learner training on KITTI and CityScapes Dataset',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -174,6 +176,10 @@ def main():
         disp_net = models.deeplab_depth().to(device)  
     elif args.network=='disp_res_101':
         disp_net = models.Disp_res_101().to(device)
+    elif args.network=='DORN':
+        disp_net = models.DORN().to(device)
+    elif args.network=='disp_vgg_BN_DORN':
+        disp_net = models.Disp_vgg_BN_DORN().to(device)
     else:
     	raise "undefined network"
 
@@ -208,9 +214,15 @@ def main():
         {'params': disp_net.parameters(), 'lr': args.lr},
         {'params': pose_exp_net.parameters(), 'lr': args.lr}
     ]
+
     optimizer = torch.optim.Adam(optim_params,
                                  betas=(args.momentum, args.beta),
                                  weight_decay=args.weight_decay)
+
+    if args.pretrained_disp:
+        print("=> using pre-trained parameters for adam")
+        weights = torch.load(args.pretrained_disp)
+        optimizer.load_state_dict(weights['optimizer'])
 
     with open(args.save_path/args.log_summary, 'w') as csvfile:
         writer = csv.writer(csvfile, delimiter='\t')
@@ -265,7 +277,8 @@ def main():
         save_checkpoint(
             args.save_path, {
                 'epoch': epoch + 1,
-                'state_dict': disp_net.module.state_dict()
+                'state_dict': disp_net.module.state_dict(),
+                'optimizer' : optimizer.state_dict(),
             }, {
                 'epoch': epoch + 1,
                 'state_dict': pose_exp_net.module.state_dict()
@@ -302,10 +315,15 @@ def train(args, train_loader, disp_net, pose_exp_net, optimizer, epoch_size, log
         intrinsics_inv = intrinsics_inv.to(device); #pdb.set_trace()#check data type of gt_depth
         #print(type(gt_depth))
         gt_depth = gt_depth.to(device)
+        if args.loss == 'DORN':
+            target_c = utils.get_labels_sid(gt_depth)
         # compute output
-        disparities = disp_net(tgt_img)
-        depth = [1/disp for disp in disparities]
-        explainability_mask, pose = pose_exp_net(tgt_img, ref_imgs)
+        if args.loss == 'DORN':
+            pred_d, pred_ord = disp_net(tgt_img)
+        else:
+            disparities = disp_net(tgt_img)
+            depth = [1/disp for disp in disparities]
+            explainability_mask, pose = pose_exp_net(tgt_img, ref_imgs)
         
         if args.loss=='Multi_L1':
             loss_1 = Multiscale_L1_loss(gt_depth, depth)
@@ -324,7 +342,8 @@ def train(args, train_loader, disp_net, pose_exp_net, optimizer, epoch_size, log
         elif args.loss=='Multi_scale_inv':
             loss_1 = Multiscale_scale_inv_loss(gt_depth, depth)
         elif args.loss=='DORN':
-            loss_1 = DORN(gt_depth, depth)
+            DORN_loss = DORN()
+            loss_1 = DORN_loss(gt_depth, pred_ord, target_c)
         else:
             raise "undefined loss"
         #loss_1 = supervised_l1_loss(gt_depth, depth)
@@ -341,53 +360,59 @@ def train(args, train_loader, disp_net, pose_exp_net, optimizer, epoch_size, log
             loss_2 = explainability_loss(explainability_mask)
         else:
             loss_2 = 0
-        loss_3 = smooth_loss(depth)
-
-        loss = w1*loss_1 + w2*loss_2 + w3*loss_3
+        
+        if args.loss == 'DORN':
+            loss_3 = 0
+            loss = w1*loss_1
+        else:    
+            loss_3 = smooth_loss(depth)
+            loss = w1*loss_1 + w2*loss_2 + w3*loss_3
 
         if i > 0 and n_iter % args.print_freq == 0:
             train_writer.add_scalar('photometric_error', loss_1.item(), n_iter)
             if w2 > 0:
                 train_writer.add_scalar('explanability_loss', loss_2.item(), n_iter)
-            train_writer.add_scalar('disparity_smoothness_loss', loss_3.item(), n_iter)
+            if loss_3 > 0:
+                train_writer.add_scalar('disparity_smoothness_loss', loss_3.item(), n_iter)
             train_writer.add_scalar('total_loss', loss.item(), n_iter)
 
-        if args.training_output_freq > 0 and n_iter % args.training_output_freq == 0:
+        if args.loss != 'DORN' and args.network != 'DORN':
+            if args.training_output_freq > 0 and n_iter % args.training_output_freq == 0:
 
-            train_writer.add_image('train Input', tensor2array(tgt_img[0]), n_iter)
+                train_writer.add_image('train Input', tensor2array(tgt_img[0]), n_iter)
 
-            for k, scaled_depth in enumerate(depth):
-                train_writer.add_image('train Dispnet Output Normalized {}'.format(k),
-                                       tensor2array(disparities[k][0], max_value=None, colormap='bone'),
-                                       n_iter)
-                train_writer.add_image('train Depth Output Normalized {}'.format(k),
-                                       tensor2array(1/disparities[k][0], max_value=None),
-                                       n_iter)
-                b, _, h, w = scaled_depth.size()
-                downscale = tgt_img.size(2)/h
-
-                tgt_img_scaled = F.interpolate(tgt_img, (h, w), mode='area')
-                ref_imgs_scaled = [F.interpolate(ref_img, (h, w), mode='area') for ref_img in ref_imgs]
-
-                intrinsics_scaled = torch.cat((intrinsics[:, 0:2]/downscale, intrinsics[:, 2:]), dim=1)
-                intrinsics_scaled_inv = torch.cat((intrinsics_inv[:, :, 0:2]*downscale, intrinsics_inv[:, :, 2:]), dim=2)
-
-                # log warped images along with explainability mask
-                for j,ref in enumerate(ref_imgs_scaled):
-                    ref_warped = inverse_warp(ref, scaled_depth[:,0], pose[:,j],
-                                              intrinsics_scaled, intrinsics_scaled_inv,
-                                              rotation_mode=args.rotation_mode,
-                                              padding_mode=args.padding_mode)[0]
-                    train_writer.add_image('train Warped Outputs {} {}'.format(k,j),
-                                           tensor2array(ref_warped),
+                for k, scaled_depth in enumerate(depth):
+                    train_writer.add_image('train Dispnet Output Normalized {}'.format(k),
+                                           tensor2array(disparities[k][0], max_value=None, colormap='bone'),
                                            n_iter)
-                    train_writer.add_image('train Diff Outputs {} {}'.format(k,j),
-                                           tensor2array(0.5*(tgt_img_scaled[0] - ref_warped).abs()),
+                    train_writer.add_image('train Depth Output Normalized {}'.format(k),
+                                           tensor2array(1/disparities[k][0], max_value=None),
                                            n_iter)
-                    if explainability_mask[k] is not None:
-                        train_writer.add_image('train Exp mask Outputs {} {}'.format(k,j),
-                                               tensor2array(explainability_mask[k][0,j], max_value=1, colormap='bone'),
+                    b, _, h, w = scaled_depth.size()
+                    downscale = tgt_img.size(2)/h
+
+                    tgt_img_scaled = F.interpolate(tgt_img, (h, w), mode='area')
+                    ref_imgs_scaled = [F.interpolate(ref_img, (h, w), mode='area') for ref_img in ref_imgs]
+
+                    intrinsics_scaled = torch.cat((intrinsics[:, 0:2]/downscale, intrinsics[:, 2:]), dim=1)
+                    intrinsics_scaled_inv = torch.cat((intrinsics_inv[:, :, 0:2]*downscale, intrinsics_inv[:, :, 2:]), dim=2)
+
+                    # log warped images along with explainability mask
+                    for j,ref in enumerate(ref_imgs_scaled):
+                        ref_warped = inverse_warp(ref, scaled_depth[:,0], pose[:,j],
+                                                  intrinsics_scaled, intrinsics_scaled_inv,
+                                                  rotation_mode=args.rotation_mode,
+                                                  padding_mode=args.padding_mode)[0]
+                        train_writer.add_image('train Warped Outputs {} {}'.format(k,j),
+                                               tensor2array(ref_warped),
                                                n_iter)
+                        train_writer.add_image('train Diff Outputs {} {}'.format(k,j),
+                                               tensor2array(0.5*(tgt_img_scaled[0] - ref_warped).abs()),
+                                               n_iter)
+                        if explainability_mask[k] is not None:
+                            train_writer.add_image('train Exp mask Outputs {} {}'.format(k,j),
+                                                   tensor2array(explainability_mask[k][0,j], max_value=1, colormap='bone'),
+                                                   n_iter)
 
         # record loss and EPE
         losses.update(loss.item(), args.batch_size)
@@ -403,7 +428,7 @@ def train(args, train_loader, disp_net, pose_exp_net, optimizer, epoch_size, log
 
         with open(args.save_path/args.log_full, 'a') as csvfile:
             writer = csv.writer(csvfile, delimiter='\t')
-            writer.writerow([loss.item(), loss_1.item(), loss_2.item() if w2 > 0 else 0, loss_3.item()])
+            writer.writerow([loss.item(), loss_1.item(), loss_2.item() if w2 > 0 else 0, loss_3.item() if loss_3 > 0 else 0])
         logger.train_bar.update(i+1)
         if i % args.print_freq == 0:
             logger.train_writer.write('Train: Time {} Data {} Loss {}'.format(batch_time, data_time, losses))
@@ -533,28 +558,32 @@ def validate_with_gt(args, val_loader, disp_net, epoch, logger, output_writers=[
         depth = depth.to(device)
 
         # compute output
-        output_disp = disp_net(tgt_img)
-        output_depth = 1/output_disp[:,0]
+        if args.loss == 'DORN':
+            pred, _ = disp_net(tgt_img)
+            output_depth = torch.squeeze(utils.get_depth_sid(pred))
+        else:
+            output_disp = disp_net(tgt_img)
+            output_depth = 1/output_disp[:,0]
+        
+            if log_outputs and i < len(output_writers):
+                if epoch == 0:
+                    output_writers[i].add_image('val Input', tensor2array(tgt_img[0]), 0)
+                    depth_to_show = depth[0]
+                    output_writers[i].add_image('val target Depth',
+                                                tensor2array(depth_to_show, max_value=10),
+                                                epoch)
+                    depth_to_show[depth_to_show == 0] = 1000
+                    disp_to_show = (1/depth_to_show).clamp(0,10)
+                    output_writers[i].add_image('val target Disparity Normalized',
+                                                tensor2array(disp_to_show, max_value=None, colormap='bone'),
+                                                epoch)
 
-        if log_outputs and i < len(output_writers):
-            if epoch == 0:
-                output_writers[i].add_image('val Input', tensor2array(tgt_img[0]), 0)
-                depth_to_show = depth[0]
-                output_writers[i].add_image('val target Depth',
-                                            tensor2array(depth_to_show, max_value=10),
+                output_writers[i].add_image('val Dispnet Output Normalized',
+                                            tensor2array(output_disp[0], max_value=None, colormap='bone'),
                                             epoch)
-                depth_to_show[depth_to_show == 0] = 1000
-                disp_to_show = (1/depth_to_show).clamp(0,10)
-                output_writers[i].add_image('val target Disparity Normalized',
-                                            tensor2array(disp_to_show, max_value=None, colormap='bone'),
+                output_writers[i].add_image('val Depth Output',
+                                            tensor2array(output_depth[0], max_value=3),
                                             epoch)
-
-            output_writers[i].add_image('val Dispnet Output Normalized',
-                                        tensor2array(output_disp[0], max_value=None, colormap='bone'),
-                                        epoch)
-            output_writers[i].add_image('val Depth Output',
-                                        tensor2array(output_depth[0], max_value=3),
-                                        epoch)
 	#debug for the errors
 	#**************************************
         # scale_factor = torch.div(torch.median(depth), torch.median(output_depth))

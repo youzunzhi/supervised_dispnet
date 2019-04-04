@@ -84,3 +84,66 @@ def save_checkpoint(save_path, dispnet_state, exp_pose_state, is_best, filename=
     if is_best:
         for prefix in file_prefixes:
             shutil.copyfile(save_path/'{}_{}'.format(prefix,filename), save_path/'{}_model_best.pth.tar'.format(prefix))
+
+# def get_depth_sid(args, labels):
+#     if args.dataset == 'kitti':
+#         min = 0.001
+#         max = 80.0
+#         K = 71.0
+#     elif args.dataset == 'nyu':
+#         min = 0.02
+#         max = 80.0
+#         K = 68.0
+#     else:
+#         print('No Dataset named as ', args.dataset)
+def get_depth_sid(labels):
+    min = 0.001
+    max = 80.0
+    K = 71.0
+
+    if torch.cuda.is_available():
+        alpha_ = torch.tensor(min).cuda()
+        beta_ = torch.tensor(max).cuda()
+        K_ = torch.tensor(K).cuda()
+        #;pdb.set_trace()
+    else:
+        alpha_ = torch.tensor(min)
+        beta_ = torch.tensor(max)
+        K_ = torch.tensor(K)
+
+    # print('label size:', labels.size())
+    # depth = torch.exp(torch.log(alpha_) + torch.log(beta_ / alpha_) * labels / K_)
+    depth = alpha_ * (beta_ / alpha_) ** (labels.float() / K_)
+    # print(depth.size())
+    return depth.float()
+
+
+# def get_labels_sid(args, depth):
+#     if args.dataset == 'kitti':
+#         alpha = 0.001
+#         beta = 80.0
+#         K = 71.0
+#     elif args.dataset == 'nyu':
+#         alpha = 0.02
+#         beta = 10.0
+#         K = 68.0
+#     else:
+#         print('No Dataset named as ', args.dataset)
+def get_labels_sid(depth):
+    alpha = 0.001
+    beta = 80.0
+    K = 71.0
+
+    alpha = torch.tensor(alpha)
+    beta = torch.tensor(beta)
+    K = torch.tensor(K)
+
+    if torch.cuda.is_available():
+        alpha = alpha.cuda()
+        beta = beta.cuda()
+        K = K.cuda()
+
+    labels = K * torch.log(depth / alpha) / torch.log(beta / alpha)
+    if torch.cuda.is_available():
+        labels = labels.cuda()
+    return labels.int()

@@ -11,7 +11,7 @@ import pdb
 import models
 # for depth ground truth
 from imageio import imsave
-from utils import tensor2array
+from utils import tensor2array, get_depth_sid
 
 parser = argparse.ArgumentParser(description='Script for DispNet testing with corresponding groundTruth',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -59,6 +59,8 @@ def main():
         disp_net = models.deeplab_depth().to(device)
     elif args.network=='disp_res_101':
         disp_net = models.Disp_res_101().to(device)  
+    elif args.network=='DORN':
+        disp_net = models.DORN().to(device)    
     else:
     	raise "undefined network"
 
@@ -120,24 +122,30 @@ def main():
             img = torch.from_numpy(img).unsqueeze(0)
             img = ((img/255 - 0.5)/0.5).to(device)
             ref_imgs[i] = img
-
-        pred_disp = disp_net(tgt_img).cpu().numpy()[0,0]
+        
+        if args.network=='DORN':
+            pred_d, pred_ord = disp_net(tgt_img)
+            pred_depth = torch.squeeze(get_depth_sid(pred_d)).cpu().numpy()
+        else:
+            pred_disp = disp_net(tgt_img).cpu().numpy()[0,0]
 
         if args.output_dir is not None:
             if j == 0:
                 predictions = np.zeros((len(test_files), *pred_disp.shape))
-            predictions[j] = 1/pred_disp
+            if args.network=='DORN':
+                predictions[j] = pred_depth
+            else:
+                predictions[j] = 1/pred_disp
+                pred_depth = predictions[j]
 
         gt_depth = sample['gt_depth']
 
-        pred_depth = 1/pred_disp#;pdb.set_trace()
-        use_zoom=True#option for zoom
-        
-        if use_zoom:
-            pred_depth_zoomed = zoom(pred_depth,
-                                     (gt_depth.shape[0]/pred_depth.shape[0],
-                                      gt_depth.shape[1]/pred_depth.shape[1])
-                                     ).clip(args.min_depth, args.max_depth)
+        # pred_depth = 1/pred_disp#;pdb.set_trace()
+
+        pred_depth_zoomed = zoom(pred_depth,
+                                 (gt_depth.shape[0]/pred_depth.shape[0],
+                                  gt_depth.shape[1]/pred_depth.shape[1])
+                                 ).clip(args.min_depth, args.max_depth)
 
         # #ground truth depth production
         # tensor_depth = torch.from_numpy(gt_depth).to(device)
