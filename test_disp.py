@@ -60,7 +60,9 @@ def main():
     elif args.network=='disp_res_101':
         disp_net = models.Disp_res_101().to(device)  
     elif args.network=='DORN':
-        disp_net = models.DORN().to(device)    
+        disp_net = models.DORN().to(device)
+    elif args.network=='disp_vgg_BN_DORN':
+        disp_net = models.Disp_vgg_BN_DORN().to(device)
     else:
     	raise "undefined network"
 
@@ -123,17 +125,18 @@ def main():
             img = ((img/255 - 0.5)/0.5).to(device)
             ref_imgs[i] = img
         
-        if args.network=='DORN':
+        if args.network=='DORN' or args.network == 'disp_vgg_BN_DORN':
             pred_d, pred_ord = disp_net(tgt_img)
-            pred_depth = torch.squeeze(get_depth_sid(pred_d)).cpu().numpy()
+            pred_depth = torch.squeeze(get_depth_sid(pred_d)).cpu().numpy()#;pdb.set_trace()
+            pred_disp = 1/pred_depth
         else:
             pred_disp = disp_net(tgt_img).cpu().numpy()[0,0]
 
         if args.output_dir is not None:
             if j == 0:
                 predictions = np.zeros((len(test_files), *pred_disp.shape))
-            if args.network=='DORN':
-                predictions[j] = pred_depth
+            if args.network=='DORN' or args.network=='disp_vgg_BN_DORN':
+                predictions[j] = pred_d
             else:
                 predictions[j] = 1/pred_disp
                 pred_depth = predictions[j]

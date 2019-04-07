@@ -58,26 +58,26 @@ class ResNet(nn.Module):
         super(ResNet, self).__init__()
 
         # the arch that is different from original resnet101 and I do not have pretrained weight
-        # self.inplanes = 128
-        # self.conv1 = conv3x3(3, 64, stride=2)
-        # self.bn1 = BatchNorm2d(64)
-        # self.relu1 = nn.ReLU(inplace=False)
-        # self.conv2 = conv3x3(64, 64)
-        # self.bn2 = BatchNorm2d(64)
-        # self.relu2 = nn.ReLU(inplace=False)
-        # self.conv3 = conv3x3(64, 128)
-        # self.bn3 = BatchNorm2d(128)
-        # self.relu3 = nn.ReLU(inplace=False)
-        # self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        self.inplanes = 128
+        self.conv1 = conv3x3(3, 64, stride=2)
+        self.bn1 = BatchNorm2d(64)
+        self.relu1 = nn.ReLU(inplace=False)
+        self.conv2 = conv3x3(64, 64)
+        self.bn2 = BatchNorm2d(64)
+        self.relu2 = nn.ReLU(inplace=False)
+        self.conv3 = conv3x3(64, 128)
+        self.bn3 = BatchNorm2d(128)
+        self.relu3 = nn.ReLU(inplace=False)
+        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
-        # self.relu = nn.ReLU(inplace=False)
-        # self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1, ceil_mode=True)  # change
+        self.relu = nn.ReLU(inplace=False)
+        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1, ceil_mode=True)  # change
 
-        self.inplanes = 64
-        self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
-        self.bn1 = nn.BatchNorm2d(64) 
-        self.relu1 = nn.ReLU(inplace=True)
-        self.maxpool=nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        # self.inplanes = 64
+        # self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        # self.bn1 = nn.BatchNorm2d(64) 
+        # self.relu1 = nn.ReLU(inplace=True)
+        # self.maxpool=nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
         self.layer1 = self._make_layer(block, 64, layers[0])
         #self.layer_initial = self._make_layer(block, 64, layers[0])
@@ -105,10 +105,11 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        # x = self.relu1(self.bn1(self.conv1(x)))
-        # x = self.relu2(self.bn2(self.conv2(x)))
-        # x = self.relu3(self.bn3(self.conv3(x)))
         x = self.relu1(self.bn1(self.conv1(x)))
+        x = self.relu2(self.bn2(self.conv2(x)))
+        x = self.relu3(self.bn3(self.conv3(x)))
+        # x = self.relu1(self.bn1(self.conv1(x)))
+
         x = self.maxpool(x)
         x = self.layer1(x)
         x = self.layer2(x)
@@ -138,7 +139,9 @@ def resnet101(pretrained=True):
     #     resnet101.load_state_dict(new_params)
 
     if pretrained:#think about only do not load layer1.0 rather than do not load layer1(current situation)
-        params = model_zoo.load_url('https://download.pytorch.org/models/resnet101-5d3b4d8f.pth')
+        # params = model_zoo.load_url('https://download.pytorch.org/models/resnet101-5d3b4d8f.pth')
+        params = torch.load('/srv/glusterfs/zfang/resnet101-imagenet.pth')
+
         model_dict = resnet101.state_dict().copy()
         pretrained_dict = {k: v for k, v in params.items() if k in model_dict}
         model_dict.update(pretrained_dict)

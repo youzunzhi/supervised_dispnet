@@ -15,7 +15,7 @@ import models
 from utils import tensor2array, save_checkpoint, save_path_formatter
 from inverse_warp import inverse_warp
 
-from loss_functions import DORN, berhu_loss, Multiscale_berhu_loss, l1_loss, Multiscale_L1_loss, Multiscale_L2_loss, l2_loss, Multiscale_scale_inv_loss, Scale_invariant_loss, photometric_reconstruction_loss, explainability_loss, smooth_loss, compute_errors
+from loss_functions import smooth_DORN_loss, DORN, berhu_loss, Multiscale_berhu_loss, l1_loss, Multiscale_L1_loss, Multiscale_L2_loss, l2_loss, Multiscale_scale_inv_loss, Scale_invariant_loss, photometric_reconstruction_loss, explainability_loss, smooth_loss, compute_errors
 from logger import TermLogger, AverageMeter
 from tensorboardX import SummaryWriter
 import pdb
@@ -362,8 +362,8 @@ def train(args, train_loader, disp_net, pose_exp_net, optimizer, epoch_size, log
             loss_2 = 0
         
         if args.loss == 'DORN':
-            loss_3 = 0
-            loss = w1*loss_1
+            loss_3 = smooth_DORN_loss(pred_ord)
+            loss = w1*loss_1 + w2*loss_2 + w3*loss_3
         else:    
             loss_3 = smooth_loss(depth)
             loss = w1*loss_1 + w2*loss_2 + w3*loss_3

@@ -84,7 +84,7 @@ class DORN(nn.Module):
         # self.loss += torch.sum(torch.log(torch.clamp(ord_labels[mask_0], min=1e-8, max=1e8))) \
         #              + torch.sum(torch.log(torch.clamp(one - ord_labels[mask_1], min=1e-8, max=1e8)))
 
-        mask_0 = (K <= target_m).detach()
+        mask_0 = (K <= target_m).detach()#according to paper, this should be k < target_m or k <= target_m -1 
         mask_1 = (K > target_m).detach()
 
         one = torch.ones(ord_labels[mask_1 & fit_valid].size())
@@ -342,6 +342,18 @@ def smooth_loss(pred_map):
         weight /= 2.3  # don't ask me why it works better
     return loss
 
+def smooth_DORN_loss(pred_map):
+    def gradient(pred):
+        D_dy = pred[:, :, 1:] - pred[:, :, :-1]
+        D_dx = pred[:, :, :, 1:] - pred[:, :, :, :-1]
+        return D_dx, D_dy
+
+    dx, dy = gradient(pred_map)
+    dx2, dxdy = gradient(dx)
+    dydx, dy2 = gradient(dy)
+    loss = dx2.abs().mean() + dxdy.abs().mean() + dydx.abs().mean() + dy2.abs().mean()
+
+    return loss
 
 @torch.no_grad()
 def compute_errors(gt, pred, crop=True):

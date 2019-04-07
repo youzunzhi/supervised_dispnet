@@ -97,8 +97,13 @@ def save_checkpoint(save_path, dispnet_state, exp_pose_state, is_best, filename=
 #     else:
 #         print('No Dataset named as ', args.dataset)
 def get_depth_sid(labels):
-    min = 0.001
-    max = 80.0
+    # min = 0.001
+    # max = 80.0
+
+    # set as consistant with paper to add min value to 1 and set min as 0.01 (cannot converge on both nets)
+    min = 1.0
+    max = 80.999
+    
     K = 71.0
 
     if torch.cuda.is_available():
@@ -111,10 +116,9 @@ def get_depth_sid(labels):
         beta_ = torch.tensor(max)
         K_ = torch.tensor(K)
 
-    # print('label size:', labels.size())
-    # depth = torch.exp(torch.log(alpha_) + torch.log(beta_ / alpha_) * labels / K_)
-    depth = alpha_ * (beta_ / alpha_) ** (labels.float() / K_)
-    # print(depth.size())
+    #depth = alpha_ * (beta_ / alpha_) ** (labels.float() / K_)-0.999
+    depth = 0.5*(alpha_ * (beta_ / alpha_) ** (labels.float() / K_)+alpha_ * (beta_ / alpha_) ** ((labels.float()+1.0) / K_))-0.999# for compensation
+
     return depth.float()
 
 
@@ -130,8 +134,13 @@ def get_depth_sid(labels):
 #     else:
 #         print('No Dataset named as ', args.dataset)
 def get_labels_sid(depth):
-    alpha = 0.001
-    beta = 80.0
+    #alpha = 0.001
+    #beta = 80.0
+
+    # set as consistant with paper to add min value to 1 and set min as 0.01 (cannot converge on both nets)
+    alpha = 1.0
+    beta = 80.999#new alpha is 0.01 which is consistant with other network
+
     K = 71.0
 
     alpha = torch.tensor(alpha)
@@ -143,7 +152,8 @@ def get_labels_sid(depth):
         beta = beta.cuda()
         K = K.cuda()
 
-    labels = K * torch.log(depth / alpha) / torch.log(beta / alpha)
+    # labels = K * torch.log(depth / alpha) / torch.log(beta / alpha)
+    labels = K * torch.log(depth+0.999 / alpha) / torch.log(beta / alpha)
     if torch.cuda.is_available():
         labels = labels.cuda()
     return labels.int()

@@ -9,4 +9,4 @@ gt_single = gt_depth(1,:,:);
 %mask_single = mask(1,:,:);
 
 %plot
-[X,Y] = meshgrid(1:416,1:128);surf(X,Y,squeeze(pred_single))
+[X,Y] = meshgrid(1:416,1:128);surf(X,Y,squeeze(pred_single));

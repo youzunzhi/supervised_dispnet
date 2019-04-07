@@ -93,7 +93,7 @@ class FullImageEncoder(nn.Module):
         self.global_fc = nn.Linear(2048 * 2 * 4, 512)  # kitti 4x5
         self.relu = nn.ReLU(inplace=True)
         self.conv1 = nn.Conv2d(512, 512, 1)  # 1x1 卷积
-        self.upsample = nn.UpsamplingBilinear2d(size=(16, 52))  #17X53 for the 3 conv condition of backbone# KITTI 49X65 NYU 33X45
+        self.upsample = nn.UpsamplingBilinear2d(size=(17, 53))  #17X53 for the 3 conv condition of backbone# KITTI 49X65 NYU 33X45
 
         weights_init(self.modules(), 'xavier')
 
