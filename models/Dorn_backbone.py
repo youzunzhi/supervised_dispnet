@@ -123,7 +123,7 @@ class ResNet(nn.Module):
                 m.eval()
 
 
-def resnet101(pretrained=True):
+def resnet101(pretrained=True, freeze=True):
     resnet101 = ResNet(Bottleneck, [3, 4, 23, 3])
 
     # if pretrained:
@@ -146,4 +146,25 @@ def resnet101(pretrained=True):
         pretrained_dict = {k: v for k, v in params.items() if k in model_dict}
         model_dict.update(pretrained_dict)
         resnet101.load_state_dict(model_dict)
+        
+    def set_bn_eval(m):
+        classname = m.__class__.__name__
+        if classname.find('BatchNorm') != -1:
+            m.eval()
+    #set layer1 and before layer as frozen
+    if freeze == True:
+        frozen_layer = [
+            resnet101.conv1, 
+            resnet101.conv2,
+            resnet101.conv3,
+            resnet101.layer1
+        ]
+
+        for j in range(len(frozen_layer)):
+            for k in frozen_layer[j].parameters():
+                k.requires_grad = False
+        
+        resnet101.apply(set_bn_eval)
+
     return resnet101
+

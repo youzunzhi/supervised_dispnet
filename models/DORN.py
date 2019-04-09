@@ -207,7 +207,7 @@ class DORN(nn.Module):
         self.channel = channel
         # original_resnet = models.resnet101(pretrained=pretrained)
         # self.feature_extractor = nn.Sequential(*list(original_resnet.children())[:-2])
-        self.feature_extractor = resnet101(pretrained=pretrained)
+        self.feature_extractor = resnet101(pretrained=pretrained, freeze=freeze)
         self.aspp_module = SceneUnderstandingModule()
         self.orl = OrdinalRegressionLayer()
 

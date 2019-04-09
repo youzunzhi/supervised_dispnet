@@ -204,20 +204,28 @@ def main():
     else:
         disp_net.init_weights(use_pretrained_weights=args.pretrained_encoder)# decide whether use pretrained encoder
 
+    print('=> setting adam solver')
+
+    # optim_params = [
+    #     {'params': disp_net.parameters(), 'lr': args.lr},
+    #     {'params': pose_exp_net.parameters(), 'lr': args.lr}
+    # ]
+
+    # optimizer = torch.optim.Adam(optim_params,
+    #                              betas=(args.momentum, args.beta),
+    #                              weight_decay=args.weight_decay)
+
+    # set as DORN 
+    # different modules have different learning rate
+    train_params = [{'params': disp_net.get_1x_lr_params(), 'lr': args.lr},
+                    {'params': disp_net.get_10x_lr_params(), 'lr': args.lr * 10}]
+
+    optimizer = torch.optim.SGD(train_params, lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
+
+
     cudnn.benchmark = True
     disp_net = torch.nn.DataParallel(disp_net)
     pose_exp_net = torch.nn.DataParallel(pose_exp_net)
-
-    print('=> setting adam solver')
-
-    optim_params = [
-        {'params': disp_net.parameters(), 'lr': args.lr},
-        {'params': pose_exp_net.parameters(), 'lr': args.lr}
-    ]
-
-    optimizer = torch.optim.Adam(optim_params,
-                                 betas=(args.momentum, args.beta),
-                                 weight_decay=args.weight_decay)
 
     if args.pretrained_disp:
         print("=> using pre-trained parameters for adam")

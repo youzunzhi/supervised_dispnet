@@ -5,10 +5,10 @@ import pdb
 import torch
 import torchvision.models
 
-params=model_zoo.load_url('https://download.pytorch.org/models/resnet101-5d3b4d8f.pth')
-for i in params.keys():
-	print(i)
-model_vgg = torchvision.models.resnet101();pdb.set_trace()
+# params=model_zoo.load_url('https://download.pytorch.org/models/resnet101-5d3b4d8f.pth')
+# for i in params.keys():
+# 	print(i)
+model_vgg = models.DORN();pdb.set_trace()
 
 
 #print(model_vgg.children)
