@@ -153,7 +153,7 @@ def get_labels_sid(depth):
         K = K.cuda()
 
     # labels = K * torch.log(depth / alpha) / torch.log(beta / alpha)
-    labels = K * torch.log(depth+0.999 / alpha) / torch.log(beta / alpha)
+    labels = K * torch.log((depth+0.999) / alpha) / torch.log(beta / alpha)
     if torch.cuda.is_available():
         labels = labels.cuda()
     return labels.int()

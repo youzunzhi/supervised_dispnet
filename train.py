@@ -28,6 +28,7 @@ parser.add_argument("--network", default='disp_vgg', type=str, help="network typ
 parser.add_argument('--imagenet-normalization', action='store_true', help='use imagenet parameter for normalization.')
 parser.add_argument('--pretrained-encoder', action='store_true', help='use imagenet pretrained parameter.')
 parser.add_argument('--loss', default='Multi_L1', type=str, help='loss type')
+parser.add_argument('--diff-lr', action='store_true', help='use different learning rate for encoder and decoder')
 
 parser.add_argument('data', metavar='DIR',
                     help='path to dataset')
@@ -203,24 +204,25 @@ def main():
 
     else:
         disp_net.init_weights(use_pretrained_weights=args.pretrained_encoder)# decide whether use pretrained encoder
+    
+    if not args.diff_lr:
+        print('=> setting adam solver')
 
-    print('=> setting adam solver')
+        optim_params = [
+            {'params': disp_net.parameters(), 'lr': args.lr},
+            {'params': pose_exp_net.parameters(), 'lr': args.lr}
+        ]
 
-    # optim_params = [
-    #     {'params': disp_net.parameters(), 'lr': args.lr},
-    #     {'params': pose_exp_net.parameters(), 'lr': args.lr}
-    # ]
+        optimizer = torch.optim.Adam(optim_params,
+                                     betas=(args.momentum, args.beta),
+                                     weight_decay=args.weight_decay)
+    else:
+        # set as DORN 
+        # different modules have different learning rate
+        train_params = [{'params': disp_net.get_1x_lr_params(), 'lr': args.lr},
+                        {'params': disp_net.get_10x_lr_params(), 'lr': args.lr * 10}]
 
-    # optimizer = torch.optim.Adam(optim_params,
-    #                              betas=(args.momentum, args.beta),
-    #                              weight_decay=args.weight_decay)
-
-    # set as DORN 
-    # different modules have different learning rate
-    train_params = [{'params': disp_net.get_1x_lr_params(), 'lr': args.lr},
-                    {'params': disp_net.get_10x_lr_params(), 'lr': args.lr * 10}]
-
-    optimizer = torch.optim.SGD(train_params, lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
+        optimizer = torch.optim.SGD(train_params, lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
 
 
     cudnn.benchmark = True
@@ -309,6 +311,15 @@ def train(args, train_loader, disp_net, pose_exp_net, optimizer, epoch_size, log
     # switch to train mode
     disp_net.train()
     pose_exp_net.train()
+    
+    # # freeze bn
+    def set_bn_eval(m):
+        classname = m.__class__.__name__
+        if classname.find('BatchNorm') != -1:
+            m.eval()
+    if args.diff_lr:
+        disp_net.apply(set_bn_eval)
+
 
     end = time.time()
     logger.train_bar.update(0);#pdb.set_trace
@@ -325,8 +336,6 @@ def train(args, train_loader, disp_net, pose_exp_net, optimizer, epoch_size, log
         gt_depth = gt_depth.to(device)
         if args.loss == 'DORN':
             target_c = utils.get_labels_sid(gt_depth)
-        # compute output
-        if args.loss == 'DORN':
             pred_d, pred_ord = disp_net(tgt_img)
         else:
             disparities = disp_net(tgt_img)

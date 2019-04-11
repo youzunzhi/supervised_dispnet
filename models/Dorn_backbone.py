@@ -147,10 +147,6 @@ def resnet101(pretrained=True, freeze=True):
         model_dict.update(pretrained_dict)
         resnet101.load_state_dict(model_dict)
         
-    def set_bn_eval(m):
-        classname = m.__class__.__name__
-        if classname.find('BatchNorm') != -1:
-            m.eval()
     #set layer1 and before layer as frozen
     if freeze == True:
         frozen_layer = [
@@ -164,7 +160,5 @@ def resnet101(pretrained=True, freeze=True):
             for k in frozen_layer[j].parameters():
                 k.requires_grad = False
         
-        resnet101.apply(set_bn_eval)
-
     return resnet101
 

@@ -9,7 +9,7 @@ from tqdm import tqdm
 import datetime
 #from models import DispNetS
 import models
-from utils import tensor2array
+from utils import tensor2array, get_depth_sid
 import pdb
 from PIL import Image, ImageEnhance
 
@@ -58,7 +58,9 @@ def main():
     elif args.network=='FCRN':
         disp_net = models.FCRN().to(device)     
     elif args.network=='ASPP':
-        disp_net = models.deeplab_depth().to(device)     
+        disp_net = models.deeplab_depth().to(device)   
+    elif args.network=='disp_vgg_BN_DORN':
+        disp_net = models.Disp_vgg_BN_DORN().to(device)   
     else:
         raise "undefined network"
 
@@ -102,13 +104,19 @@ def main():
         # tensor_img = ((tensor_img/255 - 0.5)/0.2).to(device)% why it is 0.2
         tensor_img = normalize(tensor_img/255).unsqueeze(0).to(device)# consider multiply by 2.5 to compensate
 
-        output = disp_net(tensor_img)[0]
+        if args.network=='DORN' or args.network == 'disp_vgg_BN_DORN':
+            pred_d, pred_ord = disp_net(tensor_img)
+            #pred_depth = torch.squeeze(get_depth_sid(pred_d))#.cpu().numpy()#;pdb.set_trace()
+            pred_depth = get_depth_sid(pred_d)[0]
+            output = 1/pred_depth;pdb.set_trace()
+        else:
+            output = disp_net(tensor_img)[0]
         
         #add normalize from median of ground truth 
-        pred = disp_net(tensor_img).cpu().numpy()[0,0];#pdb.set_trace()
-        output = output*(scale_factor[j]/np.median(pred))
-        #save pred_max for recover depth from pic
-        pred_max[j] = np.amax(pred) 
+        # pred = disp_net(tensor_img).cpu().numpy()[0,0];#pdb.set_trace()
+        # output = output*(scale_factor[j]/np.median(pred))
+        # #save pred_max for recover depth from pic
+        # pred_max[j] = np.amax(pred) 
 
         if args.output_disp:
             disp = (255*tensor2array(output, max_value=50, colormap='bone', channel_first=False)).astype(np.uint8)
@@ -134,8 +142,8 @@ def main():
             depth = (255*tensor2array(depth, max_value=10, colormap='rainbow', channel_first=False)).astype(np.uint8)
             imsave(output_dir/'{}_depth{}'.format(file.namebase,file.ext), depth)
     
-    output_file = Path('pred_max_test')
-    np.save(output_file, pred_max)
+    # output_file = Path('pred_max_test')
+    # np.save(output_file, pred_max)
 
 if __name__ == '__main__':
     main()

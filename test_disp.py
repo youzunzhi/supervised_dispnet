@@ -200,7 +200,7 @@ def main():
         #gt_scale[j] = np.median(gt_depth)
 
         scale_factor = 1
-        errors[1,:,j] = compute_errors(gt_depth, pred_depth_zoomed*scale_factor)
+        errors[1,:,j] = compute_errors(gt_depth, pred_depth_zoomed*scale_factor)#;pdb.set_trace()
 
         # #ground truth depth production
         # tensor_depth = torch.from_numpy(gt_depth).to(device)
@@ -227,8 +227,8 @@ def main():
         np.save(output_dir/'predictions.npy', predictions)
     
     #save to check whether avg is needed in the prediction 
-    #output_file = Path('gt_avg_test')
-    #np.save(output_file, gt_scale)
+    output_file = Path('errors_test')
+    np.save(output_file, errors[1,:,:])
 
 
 #interpolate ground truth map

@@ -84,8 +84,8 @@ class DORN(nn.Module):
         # self.loss += torch.sum(torch.log(torch.clamp(ord_labels[mask_0], min=1e-8, max=1e8))) \
         #              + torch.sum(torch.log(torch.clamp(one - ord_labels[mask_1], min=1e-8, max=1e8)))
 
-        mask_0 = (K <= target_m).detach()#according to paper, this should be k < target_m or k <= target_m -1 
-        mask_1 = (K > target_m).detach()
+        mask_0 = (K <= target_m-1).detach()#according to paper, this should be k < target_m or k <= target_m -1 
+        mask_1 = (K > target_m-1).detach()
 
         one = torch.ones(ord_labels[mask_1 & fit_valid].size())
         if torch.cuda.is_available():
