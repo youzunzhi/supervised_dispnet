@@ -11,95 +11,61 @@ import warnings
 warnings.filterwarnings('ignore', '.*output shape of zoom.*')
 #add supervised loss
 
-class DORN(nn.Module):
+
+
+def DORN_loss(gt_depth, ord_labels, target):
     """
-    Ordinal loss is defined as the average of pixelwise ordinal loss F(h, w, X, O)
-    over the entire image domain:
+    :param ord_labels: ordinal labels for each position of Image I.
+    :param target:     the ground_truth discreted using SID strategy.
+    :return: ordinal loss
     """
 
-    def __init__(self):
-        super(DORN, self).__init__()
-        self.loss = 0.0
+    loss = 0.0
+    N, C, H, W = ord_labels.size()
+    ord_num = C
 
-    def forward(self, gt_depth, ord_labels, target):
-        """
-        :param ord_labels: ordinal labels for each position of Image I.
-        :param target:     the ground_truth discreted using SID strategy.
-        :return: ordinal loss
-        """
-        # assert pred.dim() == target.dim()
-        # invalid_mask = target < 0
-        # target[invalid_mask] = 0
+    #add in valid for sparse supervision
+    valid = torch.unsqueeze((gt_depth > 0) & (gt_depth < 80), 1)#;pdb.set_trace() #4*1*128*416
+    fit_valid = valid.repeat(1, ord_num, 1, 1)
 
-        N, C, H, W = ord_labels.size()
-        ord_num = C
-        # print('ord_num = ', ord_num)
+    loss = 0.0
 
-        #add in valid for sparse supervision
-        valid = torch.unsqueeze((gt_depth > 0) & (gt_depth < 80), 1)#;pdb.set_trace() #4*1*128*416
-        fit_valid = valid.repeat(1, ord_num, 1, 1)
+    if torch.cuda.is_available():
+        K = torch.zeros((N, C, H, W), dtype=torch.int).cuda()
+        for i in range(ord_num):
+            K[:, i, :, :] = K[:, i, :, :] + i * torch.ones((N, H, W), dtype=torch.int).cuda()#;pdb.set_trace()
+    else:
+        K = torch.zeros((N, C, H, W), dtype=torch.int)
+        for i in range(ord_num):
+            K[:, i, :, :] = K[:, i, :, :] + i * torch.ones((N, H, W), dtype=torch.int)
+    # for comparison
+    target_m = torch.unsqueeze(target, 1)#4*1*128*416
 
-        self.loss = 0.0
+    # mask_0 = (K <= target_m).detach()
+    # mask_1 = (K > target_m).detach()
+    # one = torch.ones(ord_labels[mask_1].size())
+    # if torch.cuda.is_available():
+    #     one = one.cuda()
 
-        # for k in range(ord_num):
-        #     '''
-        #     p^k_(w, h) = e^y(w, h, 2k+1) / [e^(w, h, 2k) + e^(w, h, 2k+1)]
-        #     '''
-        #     p_k = ord_labels[:, k, :, :]
-        #     p_k = p_k.view(N, 1, H, W)
-        #
-        #     '''
-        #     对每个像素而言，
-        #     如果k小于l(w, h), log(p_k)
-        #     如果k大于l(w, h), log(1-p_k)
-        #     希望分类正确的p_k越大越好
-        #     '''
-        #     mask_0 = (target >= k).detach()   # 分类正确
-        #     mask_1 = (target < k).detach()  # 分类错误
-        #
-        #     one = torch.ones(p_k[mask_1].size())
-        #     if torch.cuda.is_available():
-        #         one = one.cuda()
-        #     self.loss += torch.sum(torch.log(torch.clamp(p_k[mask_0], min = 1e-7, max = 1e7))) \
-        #                  + torch.sum(torch.log(torch.clamp(one - p_k[mask_1], min = 1e-7, max = 1e7)))
+    # self.loss += torch.sum(torch.log(torch.clamp(ord_labels[mask_0], min=1e-8, max=1e8))) \
+    #              + torch.sum(torch.log(torch.clamp(one - ord_labels[mask_1], min=1e-8, max=1e8)))
 
-        # faster version
-        if torch.cuda.is_available():
-            K = torch.zeros((N, C, H, W), dtype=torch.int).cuda()
-            for i in range(ord_num):
-                K[:, i, :, :] = K[:, i, :, :] + i * torch.ones((N, H, W), dtype=torch.int).cuda()#;pdb.set_trace()
-        else:
-            K = torch.zeros((N, C, H, W), dtype=torch.int)
-            for i in range(ord_num):
-                K[:, i, :, :] = K[:, i, :, :] + i * torch.ones((N, H, W), dtype=torch.int)
-        # for comparison
-        target_m = torch.unsqueeze(target, 1)#4*1*128*416
+    mask_0 = (K <= target_m-1).detach()#according to paper, this should be k < target_m or k <= target_m -1 
+    mask_1 = (K > target_m-1).detach()
 
-        # mask_0 = (K <= target_m).detach()
-        # mask_1 = (K > target_m).detach()
-        # one = torch.ones(ord_labels[mask_1].size())
-        # if torch.cuda.is_available():
-        #     one = one.cuda()
+    one = torch.ones(ord_labels[mask_1 & fit_valid].size())
+    if torch.cuda.is_available():
+        one = one.cuda()
 
-        # self.loss += torch.sum(torch.log(torch.clamp(ord_labels[mask_0], min=1e-8, max=1e8))) \
-        #              + torch.sum(torch.log(torch.clamp(one - ord_labels[mask_1], min=1e-8, max=1e8)))
+    loss += torch.sum(torch.log(torch.clamp(ord_labels[mask_0 & fit_valid], min=1e-8, max=1e8))) \
+                 + torch.sum(torch.log(torch.clamp(one - ord_labels[mask_1 & fit_valid], min=1e-8, max=1e8)))
 
-        mask_0 = (K <= target_m-1).detach()#according to paper, this should be k < target_m or k <= target_m -1 
-        mask_1 = (K > target_m-1).detach()
+    # N = N * H * W
+    # self.loss /= (-N)  # negative
 
-        one = torch.ones(ord_labels[mask_1 & fit_valid].size())
-        if torch.cuda.is_available():
-            one = one.cuda()
-
-        self.loss += torch.sum(torch.log(torch.clamp(ord_labels[mask_0 & fit_valid], min=1e-8, max=1e8))) \
-                     + torch.sum(torch.log(torch.clamp(one - ord_labels[mask_1 & fit_valid], min=1e-8, max=1e8)))
-   
-        # N = N * H * W
-        # self.loss /= (-N)  # negative
-
-        num_valid = valid.sum().to(torch.float32)
-        self.loss /= (-num_valid)
-        return self.loss
+    num_valid = valid.sum().to(torch.float32)
+    loss /= (-num_valid)
+    return loss
 
 
 def l2_loss(gt_depth,depth):

@@ -15,7 +15,7 @@ import models
 from utils import tensor2array, save_checkpoint, save_path_formatter
 from inverse_warp import inverse_warp
 
-from loss_functions import smooth_DORN_loss, DORN, berhu_loss, Multiscale_berhu_loss, l1_loss, Multiscale_L1_loss, Multiscale_L2_loss, l2_loss, Multiscale_scale_inv_loss, Scale_invariant_loss, photometric_reconstruction_loss, explainability_loss, smooth_loss, compute_errors
+from loss_functions import smooth_DORN_loss, DORN_loss, berhu_loss, Multiscale_berhu_loss, l1_loss, Multiscale_L1_loss, Multiscale_L2_loss, l2_loss, Multiscale_scale_inv_loss, Scale_invariant_loss, photometric_reconstruction_loss, explainability_loss, smooth_loss, compute_errors
 from logger import TermLogger, AverageMeter
 from tensorboardX import SummaryWriter
 import pdb
@@ -28,6 +28,7 @@ parser.add_argument("--network", default='disp_vgg', type=str, help="network typ
 parser.add_argument('--imagenet-normalization', action='store_true', help='use imagenet parameter for normalization.')
 parser.add_argument('--pretrained-encoder', action='store_true', help='use imagenet pretrained parameter.')
 parser.add_argument('--loss', default='Multi_L1', type=str, help='loss type')
+parser.add_argument('--ordinal-c', default=71, type=int, metavar='N', help='DORN loss channel number')
 parser.add_argument('--diff-lr', action='store_true', help='use different learning rate for encoder and decoder')
 
 parser.add_argument('data', metavar='DIR',
@@ -178,9 +179,9 @@ def main():
     elif args.network=='disp_res_101':
         disp_net = models.Disp_res_101().to(device)
     elif args.network=='DORN':
-        disp_net = models.DORN().to(device)
+        disp_net = models.DORN(freeze=args.diff_lr).to(device)
     elif args.network=='disp_vgg_BN_DORN':
-        disp_net = models.Disp_vgg_BN_DORN().to(device)
+        disp_net = models.Disp_vgg_BN_DORN(ordinal_c=args.ordinal_c).to(device)
     else:
     	raise "undefined network"
 
@@ -335,7 +336,7 @@ def train(args, train_loader, disp_net, pose_exp_net, optimizer, epoch_size, log
         #print(type(gt_depth))
         gt_depth = gt_depth.to(device)
         if args.loss == 'DORN':
-            target_c = utils.get_labels_sid(gt_depth)
+            target_c = utils.get_labels_sid(gt_depth, ordinal_c=args.ordinal_c)
             pred_d, pred_ord = disp_net(tgt_img)
         else:
             disparities = disp_net(tgt_img)
@@ -359,7 +360,6 @@ def train(args, train_loader, disp_net, pose_exp_net, optimizer, epoch_size, log
         elif args.loss=='Multi_scale_inv':
             loss_1 = Multiscale_scale_inv_loss(gt_depth, depth)
         elif args.loss=='DORN':
-            DORN_loss = DORN()
             loss_1 = DORN_loss(gt_depth, pred_ord, target_c)
         else:
             raise "undefined loss"
@@ -577,7 +577,7 @@ def validate_with_gt(args, val_loader, disp_net, epoch, logger, output_writers=[
         # compute output
         if args.loss == 'DORN':
             pred, _ = disp_net(tgt_img)
-            output_depth = torch.squeeze(utils.get_depth_sid(pred))
+            output_depth = torch.squeeze(utils.get_depth_sid(pred, ordinal_c=args.ordinal_c))
         else:
             output_disp = disp_net(tgt_img)
             output_depth = 1/output_disp[:,0]

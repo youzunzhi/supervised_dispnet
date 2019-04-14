@@ -17,6 +17,7 @@ parser = argparse.ArgumentParser(description='Script for DispNet testing with co
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("--network", required=True, type=str, help="network type")
 parser.add_argument('--imagenet-normalization', action='store_true', help='use imagenet parameter for normalization.')
+parser.add_argument('--ordinal-c', default=71, type=int, metavar='N', help='DORN loss channel number')
 
 parser.add_argument("--pretrained-dispnet", required=True, type=str, help="pretrained DispNet path")
 parser.add_argument("--pretrained-posenet", default=None, type=str, help="pretrained PoseNet path (for scale factor)")
@@ -62,7 +63,7 @@ def main():
     elif args.network=='DORN':
         disp_net = models.DORN().to(device)
     elif args.network=='disp_vgg_BN_DORN':
-        disp_net = models.Disp_vgg_BN_DORN().to(device)
+        disp_net = models.Disp_vgg_BN_DORN(ordinal_c=args.ordinal_c).to(device)
     else:
     	raise "undefined network"
 
@@ -127,7 +128,7 @@ def main():
         
         if args.network=='DORN' or args.network == 'disp_vgg_BN_DORN':
             pred_d, pred_ord = disp_net(tgt_img)
-            pred_depth = torch.squeeze(get_depth_sid(pred_d)).cpu().numpy()#;pdb.set_trace()
+            pred_depth = torch.squeeze(get_depth_sid(pred_d, ordinal_c=args.ordinal_c)).cpu().numpy()#;pdb.set_trace()
             pred_disp = 1/pred_depth
         else:
             pred_disp = disp_net(tgt_img).cpu().numpy()[0,0]

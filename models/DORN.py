@@ -201,7 +201,7 @@ class OrdinalRegressionLayer(nn.Module):
 
 
 class DORN(nn.Module):
-    def __init__(self, channel=3, pretrained=True, freeze=True):
+    def __init__(self, channel=3, pretrained=True, freeze=False):
         super(DORN, self).__init__()
 
         self.channel = channel

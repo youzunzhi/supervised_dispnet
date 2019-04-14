@@ -70,7 +70,7 @@ def predict_disp(in_planes):
     )
 
 class Disp_vgg_BN_DORN(nn.Module):
-    def __init__(self, alpha=10, beta=0.01):
+    def __init__(self, ordinal_c=71 , alpha=10, beta=0.01):
         super(Disp_vgg_BN_DORN, self).__init__()
         self.only_train_dec = False
         self.alpha = alpha
@@ -104,7 +104,7 @@ class Disp_vgg_BN_DORN(nn.Module):
         self.disp1 = predict_disp(32)
 
         self.dropout = nn.Dropout2d(p=0.5)
-        self.conv_ord = nn.Conv2d(16, 142, 1)
+        self.conv_ord = nn.Conv2d(16, 2*ordinal_c, 1)#142
         self.orl = OrdinalRegressionLayer()
 
     def init_weights(self, use_pretrained_weights=False):

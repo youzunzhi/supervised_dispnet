@@ -123,7 +123,7 @@ class ResNet(nn.Module):
                 m.eval()
 
 
-def resnet101(pretrained=True, freeze=True):
+def resnet101(pretrained=True, freeze=False):
     resnet101 = ResNet(Bottleneck, [3, 4, 23, 3])
 
     # if pretrained:

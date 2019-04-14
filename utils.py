@@ -96,7 +96,7 @@ def save_checkpoint(save_path, dispnet_state, exp_pose_state, is_best, filename=
 #         K = 68.0
 #     else:
 #         print('No Dataset named as ', args.dataset)
-def get_depth_sid(labels):
+def get_depth_sid(labels, ordinal_c=71.0):
     # min = 0.001
     # max = 80.0
 
@@ -104,7 +104,7 @@ def get_depth_sid(labels):
     min = 1.0
     max = 80.999
     
-    K = 71.0
+    K = float(ordinal_c)
 
     if torch.cuda.is_available():
         alpha_ = torch.tensor(min).cuda()
@@ -133,7 +133,7 @@ def get_depth_sid(labels):
 #         K = 68.0
 #     else:
 #         print('No Dataset named as ', args.dataset)
-def get_labels_sid(depth):
+def get_labels_sid(depth, ordinal_c=71.0):
     #alpha = 0.001
     #beta = 80.0
 
@@ -141,7 +141,7 @@ def get_labels_sid(depth):
     alpha = 1.0
     beta = 80.999#new alpha is 0.01 which is consistant with other network
 
-    K = 71.0
+    K = float(ordinal_c)
 
     alpha = torch.tensor(alpha)
     beta = torch.tensor(beta)
