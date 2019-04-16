@@ -26,7 +26,7 @@ import utils
 parser = argparse.ArgumentParser(description='Structure from Motion Learner training on KITTI and CityScapes Dataset',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("--network", default='disp_vgg', type=str, help="network type")
-parser.add_argument("--datasets", default='kitti', type=str, help="dataset name")
+parser.add_argument("--dataset", default='kitti', type=str, help="dataset name")
 parser.add_argument('--imagenet-normalization', action='store_true', help='use imagenet parameter for normalization.')
 parser.add_argument('--pretrained-encoder', action='store_true', help='use imagenet pretrained parameter.')
 parser.add_argument('--loss', default='Multi_L1', type=str, help='loss type')
@@ -164,6 +164,13 @@ def main():
             limit=None, 
             debug=False
         )
+        val_set = NYU_Depth_V2(
+            args.data, 
+            split='test', 
+            transform=NYU_Depth_V2.get_transform(False, size=(256, 208)),# not sure this size
+            limit=None, 
+            debug=False
+        )
 
     #nyu loader does have scene number
     # print('{} samples found in {} train scenes'.format(len(train_set), len(train_set.scenes)))
@@ -278,7 +285,7 @@ def main():
         logger.epoch_bar.update(epoch)
 
         # train for one epoch
-        logger.reset_train_bar()
+        logger.reset_train_bar();pdb.set_trace()
         train_loss = train(args, train_loader, disp_net, pose_exp_net, optimizer, args.epoch_size, logger, training_writer)
         logger.train_writer.write(' * Avg Loss : {:.3f}'.format(train_loss))
 

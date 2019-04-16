@@ -1,7 +1,7 @@
 import os
 import numpy as np
 from skimage.transform import warp, AffineTransform
-
+import pdb
 import torch
 import torch.utils.data as data
 import torchvision.utils
@@ -56,6 +56,7 @@ class NYU_Depth_V2(data.Dataset):
             depth = stacked[3:5]
 
         if self.transform is not None:
+            # image and depth is of datatype float64
             image, depth = transform_chw(self.transform, [image, depth])
         return image, depth
 
@@ -86,6 +87,7 @@ class NYU_Depth_V2(data.Dataset):
         transforms.extend([
             # Note: ToTensor maps from [0, 255] to [0, 1] while to_tensor does not
             [ToTensor(), Lambda(to_tensor)],
+            #torch.DoubleTensor(),
             [Normalize(mean=NYUD_MEAN, std=NYUD_STD), None] if normalize else None
         ])
 

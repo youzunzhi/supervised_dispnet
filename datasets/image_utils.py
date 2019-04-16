@@ -6,6 +6,7 @@ from scipy.ndimage.interpolation import map_coordinates
 import collections
 from PIL import Image
 import numbers
+import pdb
 
 __author__ = "Wei OUYANG"
 __license__ = "GPL"
@@ -23,7 +24,8 @@ def center_crop(x, center_crop_size):
 def to_tensor(x):
     import torch
     x = x.transpose((2, 0, 1))
-    return torch.from_numpy(x).float()
+    #return torch.from_numpy(x).float()
+    return torch.from_numpy(x).double()
 
 
 def random_num_generator(config, random_state=np.random):
