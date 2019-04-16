@@ -12,6 +12,7 @@ import torch.nn.functional as F
 import torch.utils.data
 import custom_transforms
 import models
+from datasets.nyu_depth_v2 import NYU_Depth_V2
 from utils import tensor2array, save_checkpoint, save_path_formatter
 from inverse_warp import inverse_warp
 
@@ -25,6 +26,7 @@ import utils
 parser = argparse.ArgumentParser(description='Structure from Motion Learner training on KITTI and CityScapes Dataset',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("--network", default='disp_vgg', type=str, help="network type")
+parser.add_argument("--datasets", default='kitti', type=str, help="dataset name")
 parser.add_argument('--imagenet-normalization', action='store_true', help='use imagenet parameter for normalization.')
 parser.add_argument('--pretrained-encoder', action='store_true', help='use imagenet pretrained parameter.')
 parser.add_argument('--loss', default='Multi_L1', type=str, help='loss type')
@@ -107,50 +109,65 @@ def main():
         for i in range(3):
             output_writers.append(SummaryWriter(args.save_path/'valid'/str(i)))
 
-    # Data loading code
-    if args.imagenet_normalization:
-    	normalize = custom_transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                                std=[0.229, 0.224, 0.225])
-    else:
-    	normalize = custom_transforms.Normalize(mean=[0.5, 0.5, 0.5],
-                                                std=[0.5, 0.5, 0.5])
+    # Data loading code: different dataloader for different dataset
+    if args.dataset == 'kitti':
+        if args.imagenet_normalization:
+        	normalize = custom_transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                                    std=[0.229, 0.224, 0.225])
+        else:
+        	normalize = custom_transforms.Normalize(mean=[0.5, 0.5, 0.5],
+                                                    std=[0.5, 0.5, 0.5])
 
-    train_transform = custom_transforms.Compose([
-        custom_transforms.RandomHorizontalFlip(),
-        #custom_transforms.RandomScaleCrop(),# test without crop
-        custom_transforms.ArrayToTensor(),
-        normalize
-    ])
-    # train_transform = custom_transforms.Compose([custom_transforms.ArrayToTensor(), normalize])
-    #**************************
-    valid_transform = custom_transforms.Compose([custom_transforms.ArrayToTensor(), normalize])
+        train_transform = custom_transforms.Compose([
+            custom_transforms.RandomHorizontalFlip(),
+            #custom_transforms.RandomScaleCrop(),# test without crop
+            custom_transforms.ArrayToTensor(),
+            normalize
+        ])
+        # train_transform = custom_transforms.Compose([custom_transforms.ArrayToTensor(), normalize])
+        #**************************
+        valid_transform = custom_transforms.Compose([custom_transforms.ArrayToTensor(), normalize])
 
-    print("=> fetching scenes in '{}'".format(args.data))
-    train_set = SequenceFolder(
-        args.data,
-        transform=train_transform,
-        seed=args.seed,
-        train=True,
-        sequence_length=args.sequence_length
-    )
+        print("=> fetching scenes in '{}'".format(args.data))
 
-    # if no Groundtruth is avalaible, Validation set is the same type as training set to measure photometric loss from warping
-    if args.with_gt:
-        from datasets.validation_folders import ValidationSet
-        val_set = ValidationSet(
+    #different dataloader for different dataset
+
+        train_set = SequenceFolder(
             args.data,
-            transform=valid_transform
-        )
-    else:
-        val_set = SequenceFolder(
-            args.data,
-            transform=valid_transform,
+            transform=train_transform,
             seed=args.seed,
-            train=False,
-            sequence_length=args.sequence_length,
+            train=True,
+            sequence_length=args.sequence_length
         )
-    print('{} samples found in {} train scenes'.format(len(train_set), len(train_set.scenes)))
-    print('{} samples found in {} valid scenes'.format(len(val_set), len(val_set.scenes)))
+
+        # if no Groundtruth is avalaible, Validation set is the same type as training set to measure photometric loss from warping
+        if args.with_gt:
+            from datasets.validation_folders import ValidationSet
+            val_set = ValidationSet(
+                args.data,
+                transform=valid_transform
+            )
+        else:
+            val_set = SequenceFolder(
+                args.data,
+                transform=valid_transform,
+                seed=args.seed,
+                train=False,
+                sequence_length=args.sequence_length,
+            )
+
+    elif args.dataset == 'nyu':
+        train_set = NYU_Depth_V2(
+            args.data, 
+            split='train', 
+            transform=NYU_Depth_V2.get_transform(True, size=(256, 208)),# not sure this size
+            limit=None, 
+            debug=False
+        )
+
+    #nyu loader does have scene number
+    # print('{} samples found in {} train scenes'.format(len(train_set), len(train_set.scenes)))
+    # print('{} samples found in {} valid scenes'.format(len(val_set), len(val_set.scenes)))
     train_loader = torch.utils.data.DataLoader(
         train_set, batch_size=args.batch_size, shuffle=True,
         num_workers=args.workers, pin_memory=True)
@@ -326,13 +343,13 @@ def train(args, train_loader, disp_net, pose_exp_net, optimizer, epoch_size, log
     logger.train_bar.update(0);#pdb.set_trace
     #debug for gt_depth transform
 
-    for i, (tgt_img, ref_imgs, intrinsics, intrinsics_inv, gt_depth) in enumerate(train_loader):
+    for i, (tgt_img, gt_depth) in enumerate(train_loader):
         # measure data loading time
         data_time.update(time.time() - end)
         tgt_img = tgt_img.to(device)
-        ref_imgs = [img.to(device) for img in ref_imgs]
-        intrinsics = intrinsics.to(device)
-        intrinsics_inv = intrinsics_inv.to(device); #pdb.set_trace()#check data type of gt_depth
+        #ref_imgs = [img.to(device) for img in ref_imgs]
+        #intrinsics = intrinsics.to(device)
+        #intrinsics_inv = intrinsics_inv.to(device); #pdb.set_trace()#check data type of gt_depth
         #print(type(gt_depth))
         gt_depth = gt_depth.to(device)
         if args.loss == 'DORN':
@@ -341,7 +358,7 @@ def train(args, train_loader, disp_net, pose_exp_net, optimizer, epoch_size, log
         else:
             disparities = disp_net(tgt_img)
             depth = [1/disp for disp in disparities]
-            explainability_mask, pose = pose_exp_net(tgt_img, ref_imgs)
+            #explainability_mask, pose = pose_exp_net(tgt_img, ref_imgs)
         
         if args.loss=='Multi_L1':
             loss_1 = Multiscale_L1_loss(gt_depth, depth)
@@ -409,27 +426,7 @@ def train(args, train_loader, disp_net, pose_exp_net, optimizer, epoch_size, log
                     downscale = tgt_img.size(2)/h
 
                     tgt_img_scaled = F.interpolate(tgt_img, (h, w), mode='area')
-                    ref_imgs_scaled = [F.interpolate(ref_img, (h, w), mode='area') for ref_img in ref_imgs]
-
-                    intrinsics_scaled = torch.cat((intrinsics[:, 0:2]/downscale, intrinsics[:, 2:]), dim=1)
-                    intrinsics_scaled_inv = torch.cat((intrinsics_inv[:, :, 0:2]*downscale, intrinsics_inv[:, :, 2:]), dim=2)
-
-                    # log warped images along with explainability mask
-                    for j,ref in enumerate(ref_imgs_scaled):
-                        ref_warped = inverse_warp(ref, scaled_depth[:,0], pose[:,j],
-                                                  intrinsics_scaled, intrinsics_scaled_inv,
-                                                  rotation_mode=args.rotation_mode,
-                                                  padding_mode=args.padding_mode)[0]
-                        train_writer.add_image('train Warped Outputs {} {}'.format(k,j),
-                                               tensor2array(ref_warped),
-                                               n_iter)
-                        train_writer.add_image('train Diff Outputs {} {}'.format(k,j),
-                                               tensor2array(0.5*(tgt_img_scaled[0] - ref_warped).abs()),
-                                               n_iter)
-                        if explainability_mask[k] is not None:
-                            train_writer.add_image('train Exp mask Outputs {} {}'.format(k,j),
-                                                   tensor2array(explainability_mask[k][0,j], max_value=1, colormap='bone'),
-                                                   n_iter)
+                    
 
         # record loss and EPE
         losses.update(loss.item(), args.batch_size)
