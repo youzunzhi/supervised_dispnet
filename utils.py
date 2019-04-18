@@ -96,14 +96,18 @@ def save_checkpoint(save_path, dispnet_state, exp_pose_state, is_best, filename=
 #         K = 68.0
 #     else:
 #         print('No Dataset named as ', args.dataset)
-def get_depth_sid(labels, ordinal_c=71.0):
+def get_depth_sid(labels, ordinal_c=71.0,dataset='kitti'):
     # min = 0.001
     # max = 80.0
 
     # set as consistant with paper to add min value to 1 and set min as 0.01 (cannot converge on both nets)
-    min = 1.0
-    max = 80.999
-    
+    if dataset == 'kitti':
+        min = 1.0
+        max = 80.999
+    elif dataset == 'nyu':
+        min = 1.0
+        max = 10.999
+
     K = float(ordinal_c)
 
     if torch.cuda.is_available():
@@ -133,13 +137,18 @@ def get_depth_sid(labels, ordinal_c=71.0):
 #         K = 68.0
 #     else:
 #         print('No Dataset named as ', args.dataset)
-def get_labels_sid(depth, ordinal_c=71.0):
+def get_labels_sid(depth, ordinal_c=71.0 ,dataset='kitti'):
     #alpha = 0.001
     #beta = 80.0
 
     # set as consistant with paper to add min value to 1 and set min as 0.01 (cannot converge on both nets)
-    alpha = 1.0
-    beta = 80.999#new alpha is 0.01 which is consistant with other network
+
+    if dataset == 'kitti':
+        alpha = 1.0
+        beta = 80.999#new alpha is 0.01 which is consistant with other network
+    elif dataset == 'nyu':
+        alpha = 1.0
+        beta  = 10.999
 
     K = float(ordinal_c)
 

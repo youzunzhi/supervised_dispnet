@@ -70,11 +70,16 @@ def predict_disp(in_planes):
     )
 
 class Disp_vgg_BN(nn.Module):
-    def __init__(self, alpha=10, beta=0.01):
+    def __init__(self, datasets ='kitti'):
         super(Disp_vgg_BN, self).__init__()
         self.only_train_dec = False
-        self.alpha = alpha
-        self.beta = beta
+
+        if datasets == 'kitti':
+            self.alpha = 10
+            self.beta = 0.01
+        elif datasets == 'nyu':
+            self.alpha = 10#not sure about this number choice(I just think nyu should be more detailed)
+            self.beta = 0.1
 
         self.features = models.vgg16_bn(pretrained=False)
         # self.vgg16_model = models.vgg16(pretrained=True)

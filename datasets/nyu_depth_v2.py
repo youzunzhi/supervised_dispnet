@@ -9,9 +9,10 @@ from torchvision.transforms import Lambda, Normalize, ToTensor
 from .image_utils import (EnhancedCompose, Merge, RandomCropNumpy, Split, to_tensor,
                           BilinearResize, CenterCropNumpy, RandomRotate, AddGaussianNoise,
                           RandomFlipHorizontal, RandomColor)
-
-NYUD_MEAN = [0.48056951, 0.41091299, 0.39225179]
-NYUD_STD = [0.28918225, 0.29590312, 0.3093034]
+NYUD_MEAN = [0.485, 0.456, 0.406]
+NYUD_STD = [0.229, 0.224, 0.225]
+# NYUD_MEAN = [0.48056951, 0.41091299, 0.39225179]
+# NYUD_STD = [0.28918225, 0.29590312, 0.3093034]
 
 def transform_chw(transform, lst):
     """Convert each array in lst from CHW to HWC"""
@@ -56,7 +57,8 @@ class NYU_Depth_V2(data.Dataset):
             depth = stacked[3:5]
 
         if self.transform is not None:
-            # image and depth is of datatype float64
+            # image and depth is of datatype float64 and resolution by(292,384)
+            #image, depth = image.astype(np.float32), depth.astype(np.float32) there are operation in transform that make the image and depth into double
             image, depth = transform_chw(self.transform, [image, depth])
         return image, depth
 
@@ -67,27 +69,29 @@ class NYU_Depth_V2(data.Dataset):
         return np.std(self.images / 255, axis=(0, 2, 3))
 
     @staticmethod
-    def get_transform(training=True, size=(256,192), normalize=True):
+    def get_transform(training=True, size=(352, 256), normalize=True):#(353, 257) same as DORN, we choose (352, 256) due to 32 times of dispnet
         if training:
             transforms = [
                 Merge(),
                 RandomFlipHorizontal(),
                 RandomRotate(angle_range=(-5, 5), mode='constant'),
+                #crop size (353, 257) is same as the DORN one and this is not suitable for dispnet since it is not the int times of 32
                 RandomCropNumpy(size=size),
                 RandomAffineZoom(scale_range=(1.0, 1.5)),
-                Split([0, 3], [3, 5]), #
+                Split([0, 3], [3, 5]), #split merged data into rgb and depth
                 # Note: ToTensor maps from [0, 255] to [0, 1] while to_tensor does not
                 [RandomColor(multiplier_range=(0.8, 1.2)), None],
             ]
         else:
             transforms = [
-                [BilinearResize(0.5), None],
+                [CenterCropNumpy(size=size),CenterCropNumpy(size=size)]
+                #[BilinearResize(270./480.), None],
             ]
 
         transforms.extend([
             # Note: ToTensor maps from [0, 255] to [0, 1] while to_tensor does not
             [ToTensor(), Lambda(to_tensor)],
-            #torch.DoubleTensor(),
+             Double_Float(),
             [Normalize(mean=NYUD_MEAN, std=NYUD_STD), None] if normalize else None
         ])
 
@@ -112,3 +116,12 @@ class RandomAffineZoom():
             return np.concatenate([rgb, depth, mask], axis=2)
         else:
             raise Exception('unsupported type')
+
+class Double_Float():
+    def __init__(self):
+        pass
+    def __call__(self, image):
+        #print(image[0].size())#torch.Size([3, 208, 256])
+        #print(image[0].type())#double tensor
+        #print(len(image))#;pdb.set_trace()
+        return [image[0].float(), image[1].float()]

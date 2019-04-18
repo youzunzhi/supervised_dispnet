@@ -8,10 +8,8 @@ from PIL import Image
 import numbers
 import pdb
 
-__author__ = "Wei OUYANG"
-__license__ = "GPL"
-__version__ = "0.1.0"
-__status__ = "Development"
+import warnings
+warnings.filterwarnings('ignore')
 
 
 def center_crop(x, center_crop_size):
@@ -24,8 +22,9 @@ def center_crop(x, center_crop_size):
 def to_tensor(x):
     import torch
     x = x.transpose((2, 0, 1))
+
     #return torch.from_numpy(x).float()
-    return torch.from_numpy(x).double()
+    return torch.from_numpy(x).float()
 
 
 def random_num_generator(config, random_state=np.random):
@@ -92,7 +91,9 @@ class Merge(object):
                 s[self.axis] = None
             assert all([s == shapes[0] for s in shapes]
                        ), 'shapes must be the same except the merge axis'
-            return np.concatenate(images, axis=self.axis)
+            #print(len(images))
+            #print('before merge',images[0].shape)
+            return np.concatenate(images, axis=self.axis)#concatenate images and depth at the last axis
         else:
             raise Exception("obj is not a sequence (list, tuple, etc)")
 
@@ -106,19 +107,19 @@ class Split(object):
         slices_ = []
         for s in slices:
             if isinstance(s, collections.Sequence):
-                slices_.append(slice(*s))
+                slices_.append(slice(*s))#slice object is inserted into this list
             else:
                 slices_.append(s)
         assert all([isinstance(s, slice) for s in slices_]
                    ), 'slices must be consist of slice instances'
         self.slices = slices_
-        self.axis = kwargs.get('axis', -1)
+        self.axis = kwargs.get('axis', -1)#-1 is the default value
 
     def __call__(self, image):
         if isinstance(image, np.ndarray):
             ret = []
             for s in self.slices:
-                sl = [slice(None)] * image.ndim
+                sl = [slice(None)] * image.ndim# ndim is the number of dimensions
                 sl[self.axis] = s
                 ret.append(image[sl])
             return ret
@@ -340,6 +341,10 @@ class RandomCropNumpy(object):
             x1 = self.random_state.randint(0, w - tw)
             y1 = 0
         else:
+            # print('w is ',w)
+            # print('tw is ',tw)
+            # print('h is ',h)
+            # print('th is ',th)
             x1 = self.random_state.randint(0, w - tw)
             y1 = self.random_state.randint(0, h - th)
 
@@ -462,7 +467,7 @@ class EnhancedCompose(object):
                 assert isinstance(img, collections.Sequence) and len(img) == len(
                     t), "size of image group and transform group does not fit"
                 tmp_ = []
-                for i, im_ in enumerate(img):
+                for i, im_ in enumerate(img):#transform image and depth seperately if available
                     if callable(t[i]):
                         tmp_.append(t[i](im_))
                     else:
@@ -470,6 +475,8 @@ class EnhancedCompose(object):
                 img = tmp_
             elif callable(t):
                 img = t(img)
+                # print(type(t).__name__)
+                # print(img.shape)
             elif t is None:
                 continue
             else:

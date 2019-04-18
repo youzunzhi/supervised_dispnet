@@ -160,14 +160,14 @@ def main():
         train_set = NYU_Depth_V2(
             args.data, 
             split='train', 
-            transform=NYU_Depth_V2.get_transform(True, size=(256, 208)),# not sure this size
+            transform=NYU_Depth_V2.get_transform(True),
             limit=None, 
             debug=False
         )
         val_set = NYU_Depth_V2(
             args.data, 
             split='test', 
-            transform=NYU_Depth_V2.get_transform(False, size=(256, 208)),# not sure this size
+            transform=NYU_Depth_V2.get_transform(False),
             limit=None, 
             debug=False
         )
@@ -189,23 +189,23 @@ def main():
     print("=> creating model")
     #changing different network
     if args.network=='dispnet':
-    	disp_net = models.DispNetS().to(device)
+    	disp_net = models.DispNetS(datasets=args.dataset).to(device)
     elif args.network=='disp_res':
-    	disp_net = models.Disp_res().to(device)
+    	disp_net = models.Disp_res(datasets=args.dataset).to(device)
     elif args.network=='disp_vgg':
-    	disp_net = models.Disp_vgg_feature().to(device)
+    	disp_net = models.Disp_vgg_feature(datasets=args.dataset).to(device)
     elif args.network=='disp_vgg_BN':
-        disp_net = models.Disp_vgg_BN().to(device)
+        disp_net = models.Disp_vgg_BN(datasets=args.dataset).to(device)
     elif args.network=='FCRN':
-        disp_net = models.FCRN().to(device)  
+        disp_net = models.FCRN(datasets=args.dataset).to(device)  
     elif args.network=='ASPP':
-        disp_net = models.deeplab_depth().to(device)  
+        disp_net = models.deeplab_depth(datasets=args.dataset).to(device)  
     elif args.network=='disp_res_101':
-        disp_net = models.Disp_res_101().to(device)
+        disp_net = models.Disp_res_101(datasets=args.dataset).to(device)
     elif args.network=='DORN':
-        disp_net = models.DORN(freeze=args.diff_lr).to(device)
+        disp_net = models.DORN(freeze=args.diff_lr, datasets=args.dataset).to(device)
     elif args.network=='disp_vgg_BN_DORN':
-        disp_net = models.Disp_vgg_BN_DORN(ordinal_c=args.ordinal_c).to(device)
+        disp_net = models.Disp_vgg_BN_DORN(ordinal_c=args.ordinal_c, datasets=args.dataset).to(device)
     else:
     	raise "undefined network"
 
@@ -285,7 +285,7 @@ def main():
         logger.epoch_bar.update(epoch)
 
         # train for one epoch
-        logger.reset_train_bar();pdb.set_trace()
+        logger.reset_train_bar()#;pdb.set_trace()
         train_loss = train(args, train_loader, disp_net, pose_exp_net, optimizer, args.epoch_size, logger, training_writer)
         logger.train_writer.write(' * Avg Loss : {:.3f}'.format(train_loss))
 
@@ -358,9 +358,14 @@ def train(args, train_loader, disp_net, pose_exp_net, optimizer, epoch_size, log
         #intrinsics = intrinsics.to(device)
         #intrinsics_inv = intrinsics_inv.to(device); #pdb.set_trace()#check data type of gt_depth
         #print(type(gt_depth))
+
         gt_depth = gt_depth.to(device)
+        if args.dataset=='nyu':
+            gt_depth = torch.squeeze(gt_depth[0,:,:])# another data is just mask and this mask is calculated by depth==10 or depth==0
+
+
         if args.loss == 'DORN':
-            target_c = utils.get_labels_sid(gt_depth, ordinal_c=args.ordinal_c)
+            target_c = utils.get_labels_sid(gt_depth, ordinal_c=args.ordinal_c, dataset=args.dataset)
             pred_d, pred_ord = disp_net(tgt_img)
         else:
             disparities = disp_net(tgt_img)
@@ -374,7 +379,7 @@ def train(args, train_loader, disp_net, pose_exp_net, optimizer, epoch_size, log
         elif args.loss=='Multi_L2':
             loss_1 = Multiscale_L2_loss(gt_depth, depth)
         elif args.loss=='L1': 
-            loss_1 = l1_loss(gt_depth, depth)
+            loss_1 = l1_loss(gt_depth, depth, args.dataset)
         elif args.loss=='berhu': 
             loss_1 = berhu_loss(gt_depth, depth)    
         elif args.loss=='L2':     
@@ -576,20 +581,23 @@ def validate_with_gt(args, val_loader, disp_net, epoch, logger, output_writers=[
     logger.valid_bar.update(0)
     for i, (tgt_img, depth) in enumerate(val_loader):
         tgt_img = tgt_img.to(device)
-        depth = depth.to(device)
+        depth = depth.to(device);#pdb.set_trace()
+        if args.dataset=='nyu':
+            depth = torch.squeeze(depth[:,0,:,:])# another data is just mask and this mask is calculated by depth==10 or depth==0
+
 
         # compute output
         if args.loss == 'DORN':
             pred, _ = disp_net(tgt_img)
-            output_depth = torch.squeeze(utils.get_depth_sid(pred, ordinal_c=args.ordinal_c))
+            output_depth = torch.squeeze(utils.get_depth_sid(pred, ordinal_c=args.ordinal_c, dataset = args.dataset ))
         else:
-            output_disp = disp_net(tgt_img)
+            output_disp = disp_net(tgt_img);#pdb.set_trace()
             output_depth = 1/output_disp[:,0]
         
             if log_outputs and i < len(output_writers):
                 if epoch == 0:
                     output_writers[i].add_image('val Input', tensor2array(tgt_img[0]), 0)
-                    depth_to_show = depth[0]
+                    depth_to_show = depth[0]# not ok for nyu
                     output_writers[i].add_image('val target Depth',
                                                 tensor2array(depth_to_show, max_value=10),
                                                 epoch)

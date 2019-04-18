@@ -13,7 +13,7 @@ warnings.filterwarnings('ignore', '.*output shape of zoom.*')
 
 
 
-def DORN_loss(gt_depth, ord_labels, target):
+def DORN_loss(gt_depth, ord_labels, target,datasets):
     """
     :param ord_labels: ordinal labels for each position of Image I.
     :param target:     the ground_truth discreted using SID strategy.
@@ -25,7 +25,13 @@ def DORN_loss(gt_depth, ord_labels, target):
     ord_num = C
 
     #add in valid for sparse supervision
-    valid = torch.unsqueeze((gt_depth > 0) & (gt_depth < 80), 1)#;pdb.set_trace() #4*1*128*416
+    if datasets == 'kitti':
+        valid = torch.unsqueeze((gt_depth > 0) & (gt_depth < 80), 1)#;pdb.set_trace() #4*1*128*416
+    elif datasets == 'nyu':
+        valid = torch.unsqueeze((gt_depth > 0) & (gt_depth < 10), 1)#;pdb.set_trace() #4*1*128*416
+    else:
+        raise "undefined datasets"
+
     fit_valid = valid.repeat(1, ord_num, 1, 1)
 
     loss = 0.0
@@ -68,65 +74,117 @@ def DORN_loss(gt_depth, ord_labels, target):
     return loss
 
 
-def l2_loss(gt_depth,depth):
+def l2_loss(gt_depth,depth,datasets):
     
     pred_depth =depth[0][:,0] #same tensor shape 4*128*416 as gt_depth(only the unscaled scale)
     loss = 0
-    for current_gt, current_pred in zip(gt_depth, pred_depth):
-        valid = (current_gt > 0) & (current_gt < 80)        
-        #valid = valid & crop_mask               
-        valid_gt = current_gt[valid]
-        valid_pred = current_pred[valid].clamp(1e-3, 80)#;pdb.set_trace()
-        #loss += ((valid_gt.to(torch.float32).abs()-valid_pred.abs())**2).mean()
-        loss += ((valid_gt-valid_pred)**2).mean()
+
+    if datasets == 'kitti':
+        for current_gt, current_pred in zip(gt_depth, pred_depth):
+            valid = (current_gt > 0) & (current_gt < 80)        
+            #valid = valid & crop_mask               
+            valid_gt = current_gt[valid]
+            valid_pred = current_pred[valid].clamp(1e-3, 80)#;pdb.set_trace()
+            #loss += ((valid_gt.to(torch.float32).abs()-valid_pred.abs())**2).mean()
+            loss += ((valid_gt-valid_pred)**2).mean()
+    elif datasets == 'nyu':
+        for current_gt, current_pred in zip(gt_depth, pred_depth):
+            valid = (current_gt > 0) & (current_gt < 10)
+            #valid = valid & crop_mask               
+            valid_gt = current_gt[valid]
+            valid_pred = current_pred[valid].clamp(1e-3, 10)#; pdb.set_trace()
+            #loss += ((valid_gt.to(torch.float32).abs()-valid_pred.abs())**2).mean()
+            loss += (valid_gt-valid_pred).abs().mean()
+    else:
+        raise "undefined datasets"
+
     loss = loss/pred_depth.size()[0] #batch size equal 4
     return loss
 
-def l1_loss(gt_depth,depth):
+def l1_loss(gt_depth,depth,datasets):
     
-    pred_depth =depth[0][:,0] #same tensor shape 4*128*416 as gt_depth(only the unscaled scale)
+    pred_depth =depth[0][:,0]#;pdb.set_trace() #kitti: same tensor shape 4*128*416 as gt_depth(only the unscaled scale)
     loss = 0
-    for current_gt, current_pred in zip(gt_depth, pred_depth):
-        valid = (current_gt > 0) & (current_gt < 80)        
-        #valid = valid & crop_mask               
-        valid_gt = current_gt[valid]
-        valid_pred = current_pred[valid].clamp(1e-3, 80)#; pdb.set_trace()
-        #loss += ((valid_gt.to(torch.float32).abs()-valid_pred.abs())**2).mean()
-        loss += (valid_gt-valid_pred).abs().mean()
+
+    if datasets == 'kitti':
+        for current_gt, current_pred in zip(gt_depth, pred_depth):
+            valid = (current_gt > 0) & (current_gt < 80)      
+            #valid = valid & crop_mask               
+            valid_gt = current_gt[valid]
+            valid_pred = current_pred[valid].clamp(1e-3, 80)#; pdb.set_trace()
+            #loss += ((valid_gt.to(torch.float32).abs()-valid_pred.abs())**2).mean()
+            loss += (valid_gt-valid_pred).abs().mean()
+    elif datasets == 'nyu':
+        for current_gt, current_pred in zip(gt_depth, pred_depth):
+            valid = (current_gt > 0) & (current_gt < 10)
+            #valid = valid & crop_mask               
+            valid_gt = current_gt[valid]
+            valid_pred = current_pred[valid].clamp(1e-3, 10)#; pdb.set_trace()
+            #loss += ((valid_gt.to(torch.float32).abs()-valid_pred.abs())**2).mean()
+            loss += (valid_gt-valid_pred).abs().mean()
+    else:
+        raise "undefined datasets"
+
     loss = loss/pred_depth.size()[0] #batch size equal 4
     return loss
     
-def berhu_loss(gt_depth,depth):
+def berhu_loss(gt_depth,depth,datasets):
     pred_depth =depth[0][:,0] #same tensor shape 4*128*416 as gt_depth(only the unscaled scale)
     loss = 0
 
-    for current_gt, current_pred in zip(gt_depth, pred_depth):
-        valid = (current_gt > 0) & (current_gt < 80)        
-        #valid = valid & crop_mask               
-        valid_gt = current_gt[valid]
-        valid_pred = current_pred[valid].clamp(1e-3, 80);# pdb.set_trace()
+    if datasets == 'kitti':
+        for current_gt, current_pred in zip(gt_depth, pred_depth):
+            valid = (current_gt > 0) & (current_gt < 80)        
+            #valid = valid & crop_mask               
+            valid_gt = current_gt[valid]
+            valid_pred = current_pred[valid].clamp(1e-3, 80);# pdb.set_trace()
 
-        residual = (valid_gt-valid_pred).abs()
-        max_res = residual.max()
-        condition = 0.2*max_res
-        L2_loss = ((residual**2+condition**2)/(2*condition))
-        L1_loss = residual
-        loss += torch.where(residual > condition, L2_loss, L1_loss).mean()
+            residual = (valid_gt-valid_pred).abs()
+            max_res = residual.max()
+            condition = 0.2*max_res
+            L2_loss = ((residual**2+condition**2)/(2*condition))
+            L1_loss = residual
+            loss += torch.where(residual > condition, L2_loss, L1_loss).mean()
+    elif datasets == 'nyu':
+            valid = (current_gt > 0) & (current_gt < 10)        
+            #valid = valid & crop_mask               
+            valid_gt = current_gt[valid]
+            valid_pred = current_pred[valid].clamp(1e-3, 10);# pdb.set_trace()
+
+            residual = (valid_gt-valid_pred).abs()
+            max_res = residual.max()
+            condition = 0.2*max_res
+            L2_loss = ((residual**2+condition**2)/(2*condition))
+            L1_loss = residual
+            loss += torch.where(residual > condition, L2_loss, L1_loss).mean()
     loss = loss/pred_depth.size()[0] #batch size equal 4    
     return loss 
 
-def Scale_invariant_loss(gt_depth,depth):
+def Scale_invariant_loss(gt_depth,depth,datasets):
     pred_depth =depth[0][:,0] #same tensor shape 4*128*416 as gt_depth(only the unscaled scale)
     loss = 0
-    for current_gt, current_pred in zip(gt_depth, pred_depth):
-        valid = (current_gt > 0) & (current_gt < 80)        
-        #valid = valid & crop_mask               
-        valid_gt = current_gt[valid]
-        valid_pred = current_pred[valid].clamp(1e-3, 80);# pdb.set_trace()
-        num_valid = valid.sum().to(torch.float32)
-        #scalar = torch.cuda.tensor(0.5)/(num_valid**2)
-        #loss += ((valid_gt.to(torch.float32).abs()-valid_pred.abs())**2).mean()
-        loss += ((valid_gt.abs()-valid_pred.abs())**2).mean()-torch.mul((valid_gt-valid_pred).sum()**2,0.5)/(num_valid**2)
+
+    if datasets == 'kitti':
+        for current_gt, current_pred in zip(gt_depth, pred_depth):
+            valid = (current_gt > 0) & (current_gt < 80)        
+            #valid = valid & crop_mask               
+            valid_gt = current_gt[valid]
+            valid_pred = current_pred[valid].clamp(1e-3, 80);# pdb.set_trace()
+            num_valid = valid.sum().to(torch.float32)
+            #scalar = torch.cuda.tensor(0.5)/(num_valid**2)
+            #loss += ((valid_gt.to(torch.float32).abs()-valid_pred.abs())**2).mean()
+            loss += ((valid_gt.abs()-valid_pred.abs())**2).mean()-torch.mul((valid_gt-valid_pred).sum()**2,0.5)/(num_valid**2)
+    elif datasets == 'nyu':
+        for current_gt, current_pred in zip(gt_depth, pred_depth):
+            valid = (current_gt > 0) & (current_gt < 10)        
+            #valid = valid & crop_mask               
+            valid_gt = current_gt[valid]
+            valid_pred = current_pred[valid].clamp(1e-3, 10);# pdb.set_trace()
+            num_valid = valid.sum().to(torch.float32)
+            #scalar = torch.cuda.tensor(0.5)/(num_valid**2)
+            #loss += ((valid_gt.to(torch.float32).abs()-valid_pred.abs())**2).mean()
+            loss += ((valid_gt.abs()-valid_pred.abs())**2).mean()-torch.mul((valid_gt-valid_pred).sum()**2,0.5)/(num_valid**2)
+
     loss = loss/(pred_depth.size()[0])#.to(torch.float32) #batch size equal 4
     return loss
 
