@@ -7,6 +7,8 @@ from scipy.misc import imread
 from tqdm import tqdm
 from scipy.interpolate import LinearNDInterpolator
 
+import os
+
 class test_framework_KITTI(object):
     def __init__(self, root, test_files, seq_length=3, min_depth=1e-3, max_depth=100, step=1):
         self.root = root
@@ -26,6 +28,38 @@ class test_framework_KITTI(object):
 
     def __len__(self):
         return len(self.img_files)
+
+# for nyu depth
+class test_framework_NYU(object):
+    def __init__(self, root, min_depth=1e-3, max_depth=10):
+        # self.root = root
+        # self.min_depth, self.max_depth = min_depth, max_depth
+        # self.gt_files, self.img_files = read_scene_data(self.root, test_files, seq_length, step)
+        self.min_depth, self.max_depth = min_depth, max_depth
+        folder = os.path.join(root, 'nyu_depth_v2', 'labeled', 'npy')
+        self.images = np.load(os.path.join(folder, 'images.npy'))
+        self.depths = np.load(os.path.join(folder, 'depths.npy'))
+
+    def __getitem__(self, i):
+        # tgt = imread(self.img_files[i][0]).astype(np.float32)
+        # depth = generate_depth_map(self.calib_dirs[i], self.gt_files[i], tgt.shape[:2], self.cams[i])
+        # return {'tgt': tgt,
+        #         'ref': [imread(img).astype(np.float32) for img in self.img_files[i][1]],
+        #         'path':self.img_files[i][0],
+        #         'gt_depth': depth,
+        #         'displacement': np.array(self.displacements[i]),
+        #         'mask': generate_mask(depth, self.min_depth, self.max_depth)
+        #         }
+        
+        image = self.images[i]
+        depth = self.depths[i]#[0]#make the shape of depth into 480*640
+        return {'tgt': image,
+                'gt_depth': depth,
+                'mask': generate_nyu_mask(depth, self.min_depth, self.max_depth)
+                }
+
+    def __len__(self):
+        return len(self.images)
 
 
 ###############################################################################
@@ -211,4 +245,10 @@ def generate_mask(gt_depth, min_depth, max_depth):
     crop_mask = np.zeros(mask.shape)
     crop_mask[crop[0]:crop[1],crop[2]:crop[3]] = 1
     mask = np.logical_and(mask, crop_mask)
+    return mask
+
+def generate_nyu_mask(gt_depth, min_depth, max_depth):
+    mask = np.logical_and(gt_depth > min_depth,
+                          gt_depth < max_depth)
+    #just remove unreasonable pixels
     return mask

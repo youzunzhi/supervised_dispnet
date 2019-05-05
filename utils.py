@@ -102,22 +102,22 @@ def get_depth_sid(labels, ordinal_c=71.0,dataset='kitti'):
 
     # set as consistant with paper to add min value to 1 and set min as 0.01 (cannot converge on both nets)
     if dataset == 'kitti':
-        min = 1.0
-        max = 80.999
-    elif dataset == 'nyu':
-        min = 1.0
-        max = 10.999
+        alpha_ = 1.0
+        beta_ = 80.999
+    elif dataset == 'nyu' or dataset == 'NYU':# for the args in test_disp is different from train
+        alpha_ = 1.0
+        beta_ = 10.999
 
-    K = float(ordinal_c)
+    K = float(ordinal_c)#;pdb.set_trace()
 
     if torch.cuda.is_available():
-        alpha_ = torch.tensor(min).cuda()
-        beta_ = torch.tensor(max).cuda()
+        alpha_ = torch.tensor(alpha_).cuda()
+        beta_ = torch.tensor(beta_).cuda()
         K_ = torch.tensor(K).cuda()
         #;pdb.set_trace()
     else:
-        alpha_ = torch.tensor(min)
-        beta_ = torch.tensor(max)
+        alpha_ = torch.tensor(alpha_)
+        beta_ = torch.tensor(beta_)
         K_ = torch.tensor(K)
 
     #depth = alpha_ * (beta_ / alpha_) ** (labels.float() / K_)-0.999

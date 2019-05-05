@@ -330,7 +330,7 @@ class RandomCropNumpy(object):
         self.random_state = random_state
 
     def __call__(self, img):
-        w, h = img.shape[:2]
+        h, w = img.shape[:2]
         th, tw = self.size
         if w == tw and h == th:
             return img
@@ -341,14 +341,15 @@ class RandomCropNumpy(object):
             x1 = self.random_state.randint(0, w - tw)
             y1 = 0
         else:
+            # print(img.shape)
             # print('w is ',w)
             # print('tw is ',tw)
             # print('h is ',h)
             # print('th is ',th)
-            x1 = self.random_state.randint(0, w - tw)
-            y1 = self.random_state.randint(0, h - th)
+            x1 = self.random_state.randint(0, h - th)
+            y1 = self.random_state.randint(0, w - tw)
 
-        return img[x1:x1 + tw, y1: y1 + th, :]
+        return img[x1:x1 + th, y1: y1 + tw, :]
 
 
 class CenterCropNumpy(object):
@@ -364,7 +365,7 @@ class CenterCropNumpy(object):
             self.size = size
 
     def __call__(self, img):
-        w, h = img.shape[:2]
+        w, h = img.shape[:2]# actually it set the first parameter as with width(I don't know how it becomes so...)
         th, tw = self.size
         x1 = int(round((w - tw) / 2.))
         y1 = int(round((h - th) / 2.))
@@ -435,8 +436,8 @@ class BilinearResize(object):
     """Resize a PIL.Image or numpy.ndarray (H x W x C)
     """
 
-    def __init__(self, zoom):
-        self.zoom = [zoom, zoom, 1]
+    def __init__(self, zoom_height, zoom_width):
+        self.zoom = [zoom_height, zoom_width, 1]
 
     def __call__(self, image):
         if isinstance(image, np.ndarray):
@@ -470,13 +471,16 @@ class EnhancedCompose(object):
                 for i, im_ in enumerate(img):#transform image and depth seperately if available
                     if callable(t[i]):
                         tmp_.append(t[i](im_))
+                        #print(type(t[i]).__name__)
+                        #print(t[i](im_)[:,:,0])
                     else:
                         tmp_.append(im_)
                 img = tmp_
             elif callable(t):
                 img = t(img)
-                # print(type(t).__name__)
-                # print(img.shape)
+                #print(type(t).__name__)
+                #print(img.shape)
+                #print(img[0][:,:,0])
             elif t is None:
                 continue
             else:

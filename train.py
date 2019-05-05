@@ -160,14 +160,14 @@ def main():
         train_set = NYU_Depth_V2(
             args.data, 
             split='train', 
-            transform=NYU_Depth_V2.get_transform(True),
+            transform=NYU_Depth_V2.get_transform(training=True),
             limit=None, 
             debug=False
         )
         val_set = NYU_Depth_V2(
             args.data, 
             split='test', 
-            transform=NYU_Depth_V2.get_transform(False),
+            transform=NYU_Depth_V2.get_transform(training=False),
             limit=None, 
             debug=False
         )
@@ -238,9 +238,10 @@ def main():
             {'params': pose_exp_net.parameters(), 'lr': args.lr}
         ]
 
-        optimizer = torch.optim.Adam(optim_params,
-                                     betas=(args.momentum, args.beta),
-                                     weight_decay=args.weight_decay)
+        # optimizer = torch.optim.Adam(optim_params,
+        #                              betas=(args.momentum, args.beta),
+        #                              weight_decay=args.weight_decay)
+        optimizer = torch.optim.SGD(optim_params, lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
     else:
         # set as DORN 
         # different modules have different learning rate
@@ -359,9 +360,9 @@ def train(args, train_loader, disp_net, pose_exp_net, optimizer, epoch_size, log
         #intrinsics_inv = intrinsics_inv.to(device); #pdb.set_trace()#check data type of gt_depth
         #print(type(gt_depth))
 
-        gt_depth = gt_depth.to(device)
+        gt_depth = gt_depth.to(device)#;pdb.set_trace()
         if args.dataset=='nyu':
-            gt_depth = torch.squeeze(gt_depth[0,:,:])# another data is just mask and this mask is calculated by depth==10 or depth==0
+            gt_depth = torch.squeeze(gt_depth[:,0,:,:])#;pdb.set_trace()# another data is just mask and this mask is calculated by depth==10 or depth==0
 
 
         if args.loss == 'DORN':
@@ -381,15 +382,15 @@ def train(args, train_loader, disp_net, pose_exp_net, optimizer, epoch_size, log
         elif args.loss=='L1': 
             loss_1 = l1_loss(gt_depth, depth, args.dataset)
         elif args.loss=='berhu': 
-            loss_1 = berhu_loss(gt_depth, depth)    
+            loss_1 = berhu_loss(gt_depth, depth, args.dataset)    
         elif args.loss=='L2':     
-            loss_1 = l2_loss(gt_depth, depth)
+            loss_1 = l2_loss(gt_depth, depth, args.dataset)
         elif args.loss=='scale_inv':
-            loss_1 = Scale_invariant_loss(gt_depth, depth)
+            loss_1 = Scale_invariant_loss(gt_depth, depth, args.dataset)
         elif args.loss=='Multi_scale_inv':
             loss_1 = Multiscale_scale_inv_loss(gt_depth, depth)
         elif args.loss=='DORN':
-            loss_1 = DORN_loss(gt_depth, pred_ord, target_c)
+            loss_1 = DORN_loss(gt_depth, pred_ord, target_c, args.dataset)
         else:
             raise "undefined loss"
         #loss_1 = supervised_l1_loss(gt_depth, depth)
@@ -581,19 +582,20 @@ def validate_with_gt(args, val_loader, disp_net, epoch, logger, output_writers=[
     logger.valid_bar.update(0)
     for i, (tgt_img, depth) in enumerate(val_loader):
         tgt_img = tgt_img.to(device)
-        depth = depth.to(device);#pdb.set_trace()
+        depth = depth.to(device)#;pdb.set_trace()
+        
+        #nyudepth have different structure of depth data
         if args.dataset=='nyu':
             depth = torch.squeeze(depth[:,0,:,:])# another data is just mask and this mask is calculated by depth==10 or depth==0
-
 
         # compute output
         if args.loss == 'DORN':
             pred, _ = disp_net(tgt_img)
             output_depth = torch.squeeze(utils.get_depth_sid(pred, ordinal_c=args.ordinal_c, dataset = args.dataset ))
         else:
-            output_disp = disp_net(tgt_img);#pdb.set_trace()
+            output_disp = disp_net(tgt_img)#;pdb.set_trace()
             output_depth = 1/output_disp[:,0]
-        
+            
             if log_outputs and i < len(output_writers):
                 if epoch == 0:
                     output_writers[i].add_image('val Input', tensor2array(tgt_img[0]), 0)
@@ -613,6 +615,13 @@ def validate_with_gt(args, val_loader, disp_net, epoch, logger, output_writers=[
                 output_writers[i].add_image('val Depth Output',
                                             tensor2array(output_depth[0], max_value=3),
                                             epoch)
+
+        if args.dataset=='nyu':
+            #for the use of upsample result(nyu depth test dataset resolution is different from the ground truth)
+            output_depth = torch.unsqueeze(output_depth,1)
+            upsample = nn.UpsamplingBilinear2d(size=depth.size()[1:])#since here the depth has been squeezed
+            output_depth = torch.squeeze(upsample(output_depth))
+
 	#debug for the errors
 	#**************************************
         # scale_factor = torch.div(torch.median(depth), torch.median(output_depth))
@@ -622,7 +631,7 @@ def validate_with_gt(args, val_loader, disp_net, epoch, logger, output_writers=[
         # errors.update(compute_errors(depth, output_depth*scale_factor))
 	#**************************************
 	#original
-        errors.update(compute_errors(depth, output_depth))
+        errors.update(compute_errors(depth, output_depth, dataset=args.dataset))#;pdb.set_trace()
 
         # measure elapsed time
         batch_time.update(time.time() - end)

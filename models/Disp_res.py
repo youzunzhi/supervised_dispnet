@@ -42,12 +42,17 @@ def maxpool(kernel_size):
 
 class Disp_res(nn.Module):
 
-    def __init__(self, alpha=10, beta=0.01):
+    def __init__(self, datasets ='kitti'):
         super(Disp_res, self).__init__()
         #not sure about the setting of these two parameter since the left-right consistancy one use alpha 0.3 and beta 0.01
-        self.alpha = alpha
-        self.beta = beta
-        self.only_train_dec = True
+        if datasets == 'kitti':
+            self.alpha = 10
+            self.beta = 0.01
+        elif datasets == 'nyu':
+            self.alpha = 10#not sure about this number choice(I just think nyu should be more detailed)
+            self.beta = 0.1
+        
+        self.only_train_dec = False
         #resnet encoder
         self.inplanes = 64
         conv_planes = [64, 64, 128, 256, 512]

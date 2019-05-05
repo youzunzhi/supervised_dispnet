@@ -41,11 +41,16 @@ def crop_like(input, ref):
 
 class DispNetS(nn.Module):
 
-    def __init__(self, alpha=10, beta=0.01):
+    def __init__(self, datasets ='kitti'):
         super(DispNetS, self).__init__()
 
-        self.alpha = alpha
-        self.beta = beta
+        if datasets == 'kitti':
+            self.alpha = 10
+            self.beta = 0.01
+        elif datasets == 'nyu':
+            self.alpha = 10#not sure about this number choice(I just think nyu should be more detailed)
+            self.beta = 0.1
+         
 
         conv_planes = [32, 64, 128, 256, 512, 512, 512]
         self.conv1 = downsample_conv(3,              conv_planes[0], kernel_size=7)

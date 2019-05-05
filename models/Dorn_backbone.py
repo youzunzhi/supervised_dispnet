@@ -57,7 +57,7 @@ class ResNet(nn.Module):
     def __init__(self, block, layers):
         super(ResNet, self).__init__()
 
-        # the arch that is different from original resnet101 and I do not have pretrained weight
+        # the arch is pspnet
         self.inplanes = 128
         self.conv1 = conv3x3(3, 64, stride=2)
         self.bn1 = BatchNorm2d(64)

@@ -45,7 +45,7 @@ def DORN_loss(gt_depth, ord_labels, target,datasets):
         for i in range(ord_num):
             K[:, i, :, :] = K[:, i, :, :] + i * torch.ones((N, H, W), dtype=torch.int)
     # for comparison
-    target_m = torch.unsqueeze(target, 1)#4*1*128*416
+    target_m = torch.unsqueeze(target, 1)#;pdb.set_trace()#4*1*128*416
 
     # mask_0 = (K <= target_m).detach()
     # mask_1 = (K > target_m).detach()
@@ -119,7 +119,7 @@ def l1_loss(gt_depth,depth,datasets):
             valid = (current_gt > 0) & (current_gt < 10)
             #valid = valid & crop_mask               
             valid_gt = current_gt[valid]
-            valid_pred = current_pred[valid].clamp(1e-3, 10)#; pdb.set_trace()
+            valid_pred = current_pred[valid].clamp(1e-3, 10)#;pdb.set_trace()
             #loss += ((valid_gt.to(torch.float32).abs()-valid_pred.abs())**2).mean()
             loss += (valid_gt-valid_pred).abs().mean()
     else:
@@ -380,7 +380,7 @@ def smooth_DORN_loss(pred_map):
     return loss
 
 @torch.no_grad()
-def compute_errors(gt, pred, crop=True):
+def compute_errors(gt, pred, dataset='kitti',crop=True):
     abs_diff, abs_rel, sq_rel, a1, a2, a3 = 0,0,0,0,0,0
     batch_size = gt.size(0)
 
@@ -389,19 +389,25 @@ def compute_errors(gt, pred, crop=True):
     construct a mask of False values, with the same size as target
     and then set to True values inside the crop
     '''
-    if crop:
-        crop_mask = gt[0] != gt[0]
-        y1,y2 = int(0.40810811 * gt.size(1)), int(0.99189189 * gt.size(1))
-        x1,x2 = int(0.03594771 * gt.size(2)), int(0.96405229 * gt.size(2))
-        crop_mask[y1:y2,x1:x2] = 1
+    if dataset=='kitti':
+        if crop:
+            crop_mask = gt[0] != gt[0]
+            y1,y2 = int(0.40810811 * gt.size(1)), int(0.99189189 * gt.size(1))
+            x1,x2 = int(0.03594771 * gt.size(2)), int(0.96405229 * gt.size(2))
+            crop_mask[y1:y2,x1:x2] = 1
+            max_depth = 80
+    else: # I suppose that the nyu depth do not have this crop
+        crop_mask = gt[0] ==gt[0]
+        max_depth = 10
 
     for current_gt, current_pred in zip(gt, pred):
-        valid = (current_gt > 0) & (current_gt < 80)
+        valid = (current_gt > 0) & (current_gt < max_depth)
+
         if crop:
             valid = valid & crop_mask
 
         valid_gt = current_gt[valid]
-        valid_pred = current_pred[valid].clamp(1e-3, 80)
+        valid_pred = current_pred[valid].clamp(1e-3, max_depth)
 
         valid_pred = valid_pred * torch.median(valid_gt)/torch.median(valid_pred)
 

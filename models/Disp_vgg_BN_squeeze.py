@@ -4,7 +4,6 @@ import torch
 import torch.utils.model_zoo as model_zoo
 import torch.nn.functional as F
 import torchvision.models as models
-import pdb
 #from .model_utils import * #use . represent relative address
 #from utils.util_functions import unsqueeze_dim0_tensor
 
@@ -70,9 +69,9 @@ def predict_disp(in_planes):
         nn.Sigmoid()
     )
 
-class Disp_vgg_BN_DORN(nn.Module):
-    def __init__(self, datasets ='kitti', ordinal_c=71):
-        super(Disp_vgg_BN_DORN, self).__init__()
+class Disp_vgg_BN_squeeze(nn.Module):
+    def __init__(self, datasets ='kitti'):
+        super(Disp_vgg_BN_squeeze, self).__init__()
         self.only_train_dec = False
 
         if datasets == 'kitti':
@@ -108,10 +107,7 @@ class Disp_vgg_BN_DORN(nn.Module):
         self.disp3 = predict_disp(128)
         self.disp2 = predict_disp(64)
         self.disp1 = predict_disp(32)
-
-        self.dropout = nn.Dropout2d(p=0.5)
-        self.conv_ord = nn.Conv2d(16, 2*ordinal_c, 1)#142
-        self.orl = OrdinalRegressionLayer()
+        self.disp0 = predict_disp(16)
 
     def init_weights(self, use_pretrained_weights=False):
         for m in self.modules():
@@ -162,7 +158,7 @@ class Disp_vgg_BN_DORN(nn.Module):
         skip3 = conv3
         skip4 = conv4
 
-        upconv4 = self.upconv4(conv5)#;pdb.set_trace() # H/16
+        upconv4 = self.upconv4(conv5)  # H/16
         concat4 = torch.cat((upconv4, skip4), 1)
         iconv4  = self.iconv4(concat4)
 
@@ -187,41 +183,35 @@ class Disp_vgg_BN_DORN(nn.Module):
         upconv0 = self.upconv0(iconv1)
         concat0 = torch.cat((upconv0, disp1up), 1)
         iconv0  = self.iconv0(concat0)
-        
-        pre_ord = self.conv_ord(self.dropout(iconv0))
-        depth_labels, ord_labels = self.orl(pre_ord)
+        disp0   = self.alpha * self.disp0(iconv0)+self.beta
 
-        return depth_labels, ord_labels
+        if self.training:
+            return disp0, disp1, disp2, disp3
+        else:
+            return disp0
 
-class OrdinalRegressionLayer(nn.Module):
+class FullImageEncoder(nn.Module):# wait for modification
     def __init__(self):
-        super(OrdinalRegressionLayer, self).__init__()
+        super(FullImageEncoder, self).__init__()
+        self.global_pooling = nn.AvgPool2d(16, stride=16, padding=(8, 8))  # KITTI 16 16
+        self.dropout = nn.Dropout2d(p=0.5)
+        self.global_fc = nn.Linear(2048 * 2 * 4, 512)  # kitti 4x5
+        self.relu = nn.ReLU(inplace=True)
+        self.conv1 = nn.Conv2d(512, 512, 1)  # 1x1 卷积
+        self.upsample = nn.UpsamplingBilinear2d(size=(17, 53))  #17X53 for the 3 conv condition of backbone# KITTI 49X65 NYU 33X45
+
+        weights_init(self.modules(), 'xavier')
 
     def forward(self, x):
-        """
-        :param x: N X H X W X C, N is batch_size, C is channels of features
-        :return: ord_labels is ordinal outputs for each spatial locations , size is N x H X W X C (C = 2K, K is interval of SID)
-                 decode_label is the ordinal labels for each position of Image I
-        """
-        N, C, H, W = x.size()
-        ord_num = C // 2
-
-        """
-        replace iter with matrix operation
-        fast speed methods
-        """
-        A = x[:, ::2, :, :].clone()
-        B = x[:, 1::2, :, :].clone()
-
-        A = A.view(N, 1, ord_num * H * W)
-        B = B.view(N, 1, ord_num * H * W)
-
-        C = torch.cat((A, B), dim=1)
-        C = torch.clamp(C, min=1e-8, max=1e8)  # prevent nans
-
-        ord_c = nn.functional.softmax(C, dim=1)
-
-        ord_c1 = ord_c[:, 1, :].clone()
-        ord_c1 = ord_c1.view(-1, ord_num, H, W)
-        decode_c = torch.sum((ord_c1 > 0.5), dim=1).view(-1, 1, H, W)
-        return decode_c, ord_c1
+        #print('x size:', x.size());pdb.set_trace()
+        x1 = self.global_pooling(x)#torch.Size([4, 2048, 17, 53]) for 416*128 resolution
+        # print('# x1 size:', x1.size())
+        x2 = self.dropout(x1)
+        x3 = x2.view(-1, 2048 * 2 * 4)  # kitti 4x5 for original and 2*4 for 416*128
+        x4 = self.relu(self.global_fc(x3))
+        # print('# x4 size:', x4.size())
+        x4 = x4.view(-1, 512, 1, 1)
+        # print('# x4 size:', x4.size())
+        x5 = self.conv1(x4)
+        out = self.upsample(x5)# copy global feature along the spatial dimensions
+        return out

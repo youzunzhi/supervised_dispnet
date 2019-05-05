@@ -9,6 +9,7 @@ from torchvision.transforms import Lambda, Normalize, ToTensor
 from .image_utils import (EnhancedCompose, Merge, RandomCropNumpy, Split, to_tensor,
                           BilinearResize, CenterCropNumpy, RandomRotate, AddGaussianNoise,
                           RandomFlipHorizontal, RandomColor)
+#imagenet pretrained normalization
 NYUD_MEAN = [0.485, 0.456, 0.406]
 NYUD_STD = [0.229, 0.224, 0.225]
 # NYUD_MEAN = [0.48056951, 0.41091299, 0.39225179]
@@ -17,7 +18,7 @@ NYUD_STD = [0.229, 0.224, 0.225]
 def transform_chw(transform, lst):
     """Convert each array in lst from CHW to HWC"""
     return transform([x.transpose((1, 2, 0)) for x in lst])
-
+    #return transform(lst.transpose((1, 2, 0)))
 
 class NYU_Depth_V2(data.Dataset):
     def __init__(self, root, split='test', transform=None, limit=None, debug=False):
@@ -69,13 +70,14 @@ class NYU_Depth_V2(data.Dataset):
         return np.std(self.images / 255, axis=(0, 2, 3))
 
     @staticmethod
-    def get_transform(training=True, size=(352, 256), normalize=True):#(353, 257) same as DORN, we choose (352, 256) due to 32 times of dispnet
+    def get_transform(training=True, size=(256, 352), normalize=True):#(292, 384) is the resolution of input 
+                                                                      #(257, 353) same as DORN, we choose (352, 256) due to 32 times of dispnet
         if training:
             transforms = [
                 Merge(),
                 RandomFlipHorizontal(),
                 RandomRotate(angle_range=(-5, 5), mode='constant'),
-                #crop size (353, 257) is same as the DORN one and this is not suitable for dispnet since it is not the int times of 32
+                #crop size (257, 353) is same as the DORN one and this is not suitable for dispnet since it is not the int times of 32
                 RandomCropNumpy(size=size),
                 RandomAffineZoom(scale_range=(1.0, 1.5)),
                 Split([0, 3], [3, 5]), #split merged data into rgb and depth
@@ -84,13 +86,14 @@ class NYU_Depth_V2(data.Dataset):
             ]
         else:
             transforms = [
-                [CenterCropNumpy(size=size),CenterCropNumpy(size=size)]
-                #[BilinearResize(270./480.), None],
+                #[CenterCropNumpy(size=size),CenterCropNumpy(size=size)]
+                [BilinearResize(size[0]/480,size[1]/640), None],
             ]
 
         transforms.extend([
             # Note: ToTensor maps from [0, 255] to [0, 1] while to_tensor does not
-            [ToTensor(), Lambda(to_tensor)],
+
+            [ToTensor(), Lambda(to_tensor)],#this ToTensor did not maps from [0, 255] to [0, 1]
              Double_Float(),
             [Normalize(mean=NYUD_MEAN, std=NYUD_STD), None] if normalize else None
         ])
