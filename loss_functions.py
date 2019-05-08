@@ -381,7 +381,7 @@ def smooth_DORN_loss(pred_map):
 
 @torch.no_grad()
 def compute_errors(gt, pred, dataset='kitti',crop=True):
-    abs_diff, abs_rel, sq_rel, a1, a2, a3 = 0,0,0,0,0,0
+    abs_diff, abs_rel, sq_rel, rmse, rmse_log, a1, a2, a3 = 0,0,0,0,0,0,0,0
     batch_size = gt.size(0)
 
     '''
@@ -409,16 +409,19 @@ def compute_errors(gt, pred, dataset='kitti',crop=True):
         valid_gt = current_gt[valid]
         valid_pred = current_pred[valid].clamp(1e-3, max_depth)
 
-        valid_pred = valid_pred * torch.median(valid_gt)/torch.median(valid_pred)
+        #valid_pred = valid_pred * torch.median(valid_gt)/torch.median(valid_pred)
 
         thresh = torch.max((valid_gt / valid_pred), (valid_pred / valid_gt))
         a1 += (thresh < 1.25).float().mean()
         a2 += (thresh < 1.25 ** 2).float().mean()
         a3 += (thresh < 1.25 ** 3).float().mean()
-
+        
+        rmse += torch.sqrt(torch.mean((valid_gt - valid_pred)**2))
+        rmse_log += torch.sqrt(torch.mean((torch.log(valid_gt) - torch.log(valid_pred)) ** 2))
+    
         abs_diff += torch.mean(torch.abs(valid_gt - valid_pred))
         abs_rel += torch.mean(torch.abs(valid_gt - valid_pred) / valid_gt)
 
         sq_rel += torch.mean(((valid_gt - valid_pred)**2) / valid_gt)
 
-    return [metric.item() / batch_size for metric in [abs_diff, abs_rel, sq_rel, a1, a2, a3]]
+    return [metric.item() / batch_size for metric in [abs_diff, abs_rel, sq_rel, rmse, rmse_log, a1, a2, a3]]

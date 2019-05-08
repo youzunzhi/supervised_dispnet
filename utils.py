@@ -75,11 +75,15 @@ def tensor2array(tensor, max_value=255, colormap='rainbow', channel_first=True):
     return array
 
 
-def save_checkpoint(save_path, dispnet_state, exp_pose_state, is_best, filename='checkpoint.pth.tar'):
+def save_checkpoint(save_path, dispnet_state, exp_pose_state, is_best, filename='checkpoint.pth.tar',record=False):
     file_prefixes = ['dispnet', 'exp_pose']
     states = [dispnet_state, exp_pose_state]
     for (prefix, state) in zip(file_prefixes, states):
         torch.save(state, save_path/'{}_{}'.format(prefix,filename))
+    
+    if record:
+        timestamp = datetime.datetime.now().strftime("%m-%d-%H:%M")
+        torch.save(state, save_path/timestamp/'dispnet_{}'.format(filename))
 
     if is_best:
         for prefix in file_prefixes:

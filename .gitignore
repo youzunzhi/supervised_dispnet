@@ -127,3 +127,6 @@ groundtruth/
 
 #
 *.DS_Store
+
+#ignore unrelated to my project code
+unrelated/

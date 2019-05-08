@@ -1,4 +1,0 @@
-pillow
-scipy==1.1.0
-tqdm
-path.py

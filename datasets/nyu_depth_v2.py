@@ -15,6 +15,8 @@ NYUD_STD = [0.229, 0.224, 0.225]
 # NYUD_MEAN = [0.48056951, 0.41091299, 0.39225179]
 # NYUD_STD = [0.28918225, 0.29590312, 0.3093034]
 
+
+
 def transform_chw(transform, lst):
     """Convert each array in lst from CHW to HWC"""
     return transform([x.transpose((1, 2, 0)) for x in lst])
@@ -70,7 +72,7 @@ class NYU_Depth_V2(data.Dataset):
         return np.std(self.images / 255, axis=(0, 2, 3))
 
     @staticmethod
-    def get_transform(training=True, size=(256, 352), normalize=True):#(292, 384) is the resolution of input 
+    def get_transform(training=True, size=(256, 352), normalize=True):#(284, 392) is the resolution of input 
                                                                       #(257, 353) same as DORN, we choose (352, 256) due to 32 times of dispnet
         if training:
             transforms = [
@@ -86,9 +88,15 @@ class NYU_Depth_V2(data.Dataset):
             ]
         else:
             transforms = [
-                #[CenterCropNumpy(size=size),CenterCropNumpy(size=size)]
-                [BilinearResize(size[0]/480,size[1]/640), None],
+                # depth>0 can crop the edge of test image 
+                [BilinearResize(320/480,448/640), None],# for the most similar scale difference between train and raw dataset
             ]
+            
+            # transforms = [
+            #     #[CenterCropNumpy(size=size),CenterCropNumpy(size=size)]
+            #     [BilinearResize(320/480,448/640), None],# for the most similar scale difference between train and raw dataset
+            # ]
+
 
         transforms.extend([
             # Note: ToTensor maps from [0, 255] to [0, 1] while to_tensor does not

@@ -30,8 +30,9 @@ parser.add_argument("--dataset", default='kitti', type=str, help="dataset name")
 parser.add_argument('--imagenet-normalization', action='store_true', help='use imagenet parameter for normalization.')
 parser.add_argument('--pretrained-encoder', action='store_true', help='use imagenet pretrained parameter.')
 parser.add_argument('--loss', default='Multi_L1', type=str, help='loss type')
-parser.add_argument('--ordinal-c', default=71, type=int, metavar='N', help='DORN loss channel number')
+parser.add_argument('--ordinal-c', default=80, type=int, metavar='N', help='DORN loss channel number')
 parser.add_argument('--diff-lr', action='store_true', help='use different learning rate for encoder and decoder')
+parser.add_argument('--sgd', action='store_true', help='use sgd optimizer, if not then adam')
 
 parser.add_argument('data', metavar='DIR',
                     help='path to dataset')
@@ -49,7 +50,7 @@ parser.add_argument('--with-gt', action='store_true', help='use ground truth for
                     You need to store it in npy 2D arrays see data/kitti_raw_loader.py for an example')
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers')
-parser.add_argument('--epochs', default=200, type=int, metavar='N',
+parser.add_argument('--epochs', default=200, type=int, metavar='N',#change for the real epoch definition that each epoch equals the 
                     help='number of total epochs to run')
 parser.add_argument('--epoch-size', default=0, type=int, metavar='N',
                     help='manual epoch size (will match dataset size if not set)')
@@ -237,11 +238,13 @@ def main():
             {'params': disp_net.parameters(), 'lr': args.lr},
             {'params': pose_exp_net.parameters(), 'lr': args.lr}
         ]
-
-        # optimizer = torch.optim.Adam(optim_params,
-        #                              betas=(args.momentum, args.beta),
-        #                              weight_decay=args.weight_decay)
-        optimizer = torch.optim.SGD(optim_params, lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
+        
+        if args.sgd:
+            optimizer = torch.optim.SGD(optim_params, lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
+        else:
+            optimizer = torch.optim.Adam(optim_params,
+                                         betas=(args.momentum, args.beta),
+                                         weight_decay=args.weight_decay)
     else:
         # set as DORN 
         # different modules have different learning rate
@@ -279,7 +282,7 @@ def main():
             errors, error_names = validate_without_gt(args, val_loader, disp_net, pose_exp_net, 0, logger, output_writers)
         for error, name in zip(errors, error_names):
             training_writer.add_scalar(name, error, 0)
-        error_string = ', '.join('{} : {:.3f}'.format(name, error) for name, error in zip(error_names[2:9], errors[2:9]))
+        error_string = ', '.join('{} : {:.3f}'.format(name, error) for name, error in zip(error_names, errors))#error_names[2:9] errors[2:9] it used to be so
         logger.valid_writer.write(' * Avg {}'.format(error_string))
 
     for epoch in range(args.epochs):
@@ -311,15 +314,29 @@ def main():
         is_best = decisive_error < best_error
         best_error = min(best_error, decisive_error)
         save_checkpoint(
-            args.save_path, {
+            args.save_path, dispnet_state={
                 'epoch': epoch + 1,
                 'state_dict': disp_net.module.state_dict(),
                 'optimizer' : optimizer.state_dict(),
-            }, {
+            }, exp_pose_state={
                 'epoch': epoch + 1,
                 'state_dict': pose_exp_net.module.state_dict()
             },
-            is_best)
+            is_best=is_best)
+        
+        # save checkpoint per 10 times the epoch size
+        if epoch%10 == 0:
+            save_checkpoint(
+                args.save_path, dispnet_state={
+                    'epoch': epoch + 1,
+                    'state_dict': disp_net.module.state_dict(),
+                    'optimizer' : optimizer.state_dict(),
+                }, exp_pose_state={
+                    'epoch': epoch + 1,
+                    'state_dict': pose_exp_net.module.state_dict()
+                },
+                filename='checkpoint.pth.tar',
+                record=True)
 
         with open(args.save_path/args.log_summary, 'a') as csvfile:
             writer = csv.writer(csvfile, delimiter='\t')
@@ -571,7 +588,7 @@ def validate_without_gt(args, val_loader, disp_net, pose_exp_net, epoch, logger,
 def validate_with_gt(args, val_loader, disp_net, epoch, logger, output_writers=[]):
     global device
     batch_time = AverageMeter()
-    error_names = ['abs_diff', 'abs_rel', 'sq_rel', 'a1', 'a2', 'a3']
+    error_names = ['abs_diff', 'abs_rel', 'sq_rel', 'rmse', 'rmse_log', 'a1', 'a2', 'a3']
     errors = AverageMeter(i=len(error_names))
     log_outputs = len(output_writers) > 0
 

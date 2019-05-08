@@ -315,6 +315,20 @@ class MutualExclude(object):
         image[:, :, self.from_channel][mask] = 0
         return image
 
+class TestCropNumpy(object):
+    """Crops the given numpy array at a specific location to have a region of
+    the train size. size can be a tuple (target_height, target_width)
+    or an integer, in which case the target will be of a square shape (size, size)
+    """
+
+    def __init__(self, size):
+        if isinstance(size, numbers.Number):
+            self.size = (int(size), int(size))
+        else:
+            self.size = size
+
+    def __call__(self, img):
+        return img[45:471, 41:601, :]
 
 class RandomCropNumpy(object):
     """Crops the given numpy array at a random location to have a region of
