@@ -33,6 +33,8 @@ parser.add_argument('--loss', default='Multi_L1', type=str, help='loss type')
 parser.add_argument('--ordinal-c', default=80, type=int, metavar='N', help='DORN loss channel number')
 parser.add_argument('--diff-lr', action='store_true', help='use different learning rate for encoder and decoder')
 parser.add_argument('--sgd', action='store_true', help='use sgd optimizer, if not then adam')
+#try about sftp
+parser.add_argument('--record', action='store_true', help='save every 10 epochsize to check optimizer and loss influence over learning progress')
 
 parser.add_argument('data', metavar='DIR',
                     help='path to dataset')
@@ -322,21 +324,8 @@ def main():
                 'epoch': epoch + 1,
                 'state_dict': pose_exp_net.module.state_dict()
             },
-            is_best=is_best)
-        
-        # save checkpoint per 10 times the epoch size
-        if epoch%10 == 0:
-            save_checkpoint(
-                args.save_path, dispnet_state={
-                    'epoch': epoch + 1,
-                    'state_dict': disp_net.module.state_dict(),
-                    'optimizer' : optimizer.state_dict(),
-                }, exp_pose_state={
-                    'epoch': epoch + 1,
-                    'state_dict': pose_exp_net.module.state_dict()
-                },
-                filename='checkpoint.pth.tar',
-                record=True)
+            is_best=is_best,
+            record=args.record)
 
         with open(args.save_path/args.log_summary, 'a') as csvfile:
             writer = csv.writer(csvfile, delimiter='\t')

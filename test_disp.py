@@ -19,7 +19,7 @@ parser = argparse.ArgumentParser(description='Script for DispNet testing with co
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("--network", required=True, type=str, help="network type")
 parser.add_argument('--imagenet-normalization', action='store_true', help='use imagenet parameter for normalization.')
-parser.add_argument('--ordinal-c', default=71, type=int, metavar='N', help='DORN loss channel number')
+parser.add_argument('--ordinal-c', default=80, type=int, metavar='N', help='DORN loss channel number')
 #parser.add_argument("--dataset", default='kitti', type=str, help="dataset name")
 
 

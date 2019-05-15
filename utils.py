@@ -83,6 +83,8 @@ def save_checkpoint(save_path, dispnet_state, exp_pose_state, is_best, filename=
     
     if record:
         timestamp = datetime.datetime.now().strftime("%m-%d-%H:%M")
+        record_path = save_path/timestamp
+        record_path.makedirs_p()
         torch.save(state, save_path/timestamp/'dispnet_{}'.format(filename))
 
     if is_best:

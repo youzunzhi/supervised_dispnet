@@ -34,11 +34,11 @@ class NYU_Depth_V2(data.Dataset):
             self.images = np.random.rand(20, 3, 240, 320) * 255
             self.depths = np.random.rand(20, 1, 240, 320) * 10
         elif split == 'test':
-            folder = os.path.join(root, 'nyu_depth_v2', 'labeled', 'npy')
+            folder = os.path.join(root, 'nyu_depth_v2_other_resolution', 'labeled', 'npy')
             self.images = np.load(os.path.join(folder, 'images.npy'))
             self.depths = np.load(os.path.join(folder, 'depths.npy'))
         else:
-            folder = os.path.join(root, 'nyu_depth_v2', 'npy')
+            folder = os.path.join(root, 'nyu_depth_v2_other_resolution', 'npy')
             self.file_paths = [os.path.join(folder, n) for n in sorted(os.listdir(folder))]
 
     def __len__(self):
