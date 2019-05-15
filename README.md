@@ -49,9 +49,20 @@ For [KITTI](http://www.cvlibs.net/datasets/kitti/raw_data.php), first download t
 python3 data/prepare_train_data.py /path/to/raw/kitti/dataset/ --dataset-format 'kitti' --dump-root /path/to/resulting/formatted/data/ --width 416 --height 128 --num-threads 4 [--static-frames /path/to/static_frames.txt] [--with-depth] [--with-pose]
 ```
 
-For [NYU](https://cs.nyu.edu/~silberman/datasets/nyu_depth_v2.html), first download the dataset using this [script](horatio.cs.nyu.edu/mit/silberman/nyu_depth_v2/nyu_depth_v2_raw.zip) provided on the official website, and then run the following command. 
-```bash
-python3 data/prepare_train_data.py /path/to/raw/kitti/dataset/ --dataset-format 'kitti' --dump-root /path/to/resulting/formatted/data/ --width 416 --height 128 --num-threads 4 [--static-frames /path/to/static_frames.txt] [--with-depth] [--with-pose]
+For [NYU](https://cs.nyu.edu/~silberman/datasets/nyu_depth_v2.html), first download the dataset using this [script](horatio.cs.nyu.edu/mit/silberman/nyu_depth_v2/nyu_depth_v2_raw.zip) provided on the official website, then follow the instruction below and corresponding file like process_raw.m is saved in data/nyudepth_preparation. 
+```
+How to process the training dataset:
+1.) Extract the RAW dataset into a folder A (name not important)
+2.) Download NYU Depth v2. toolbox from http://cs.nyu.edu/~silberman/code/toolbox_nyu_depth_v2.zip
+3.) Extract scripts from the toolbox to folder 'tools' in folder A
+4.) Run process_raw.m in folder A
+5.) python nyud_raw_train_to_npy.py (modify the paths in that file to point to correct dirs, and also the resolution of training images can be modified here)
+
+How to process the testing dataset:
+1.) Download labeled NYU Depth v2. dataset from http://horatio.cs.nyu.edu/mit/silberman/nyu_depth_v2/nyu_depth_v2_labeled.mat
+2.) Download splits.mat containing official train/test split http://horatio.cs.nyu.edu/mit/silberman/indoor_seg_sup/splits.mat
+3.) Place all downloaded files into single folder
+4.) Run script nyud_test_to_npy.py (modify the paths in that file to point to correct dirs)
 ```
 <!-- For [Cityscapes](https://www.cityscapes-dataset.com/), download the following packages: 1) `leftImg8bit_sequence_trainvaltest.zip`, 2) `camera_trainvaltest.zip`. You will probably need to contact the administrators to be able to get it. Then run the following command
 ```bash
@@ -62,68 +73,40 @@ Notice that for Cityscapes the `img_height` is set to 171 because we crop out th
 ## Training
 Once the data are formatted following the above instructions, you should be able to train the model by running the following command
 ```bash
-python3 train.py /path/to/the/formatted/data/ -b4 -m0.2 -s0.1 --epoch-size 3000 --sequence-length 3 --log-output [--with-gt]
+python3 train.py /path/to/the/formatted/data/ -b4 -m0.2 -s0.1 --epoch-size 3000 --sequence-length 3 --log-output [--with-gt] --network disp_vgg_BN [--pretrained-enocoder] [--imagenet-normalization] --loss L1 --dataset nyu [--pretrained-disp /path/to/the/existing_weights/]
 ```
 You can then start a `tensorboard` session in this folder by
 ```bash
 tensorboard --logdir=checkpoints/
 ```
-and visualize the training progress by opening [https://localhost:6006](https://localhost:6006) on your browser. If everything is set up properly, you should start seeing reasonable depth prediction after ~30K iterations when training on KITTI.
+and visualize the training progress by opening [https://localhost:6006](https://localhost:6006) on your browser. If everything is set up properly, you should start seeing reasonable depth prediction after ~30K iterations when training on KITTI. As for the NYU Depth, image is not saved in tensorboard and it takes about over 40 epochs. This epoch means going through whole dataset, since our NYU Depth dataset consists of 67837 images and batchsize is 4, thus 17459 is the corresponding epochsize.
 
 ## Evaluation
 
 Disparity map generation can be done with `run_inference.py`
 ```bash
-python3 run_inference.py --pretrained /path/to/dispnet --dataset-dir /path/pictures/dir --output-dir /path/to/output/dir
+python3 run_inference.py --pretrained /path/to/dispnet --dataset-dir /path/pictures/dir --output-dir /path/to/output/dir --network disp_vgg_BN [--imagenet-normalization]
 ```
 Will run inference on all pictures inside `dataset-dir` and save a jpg of disparity (or depth) to `output-dir` for each one see script help (`-h`) for more options.
 
 Disparity evaluation is avalaible
 ```bash
-python3 test_disp.py --pretrained-dispnet /path/to/dispnet --pretrained-posenet /path/to/posenet --dataset-dir /path/to/KITTI_raw --dataset-list /path/to/test_files_list
+python3 test_disp.py --pretrained-dispnet /path/to/dispnet --pretrained-posenet /path/to/posenet --dataset-dir /path/to/KITTI_raw --dataset-list /path/to/test_files_list --network disp_vgg_BN [--imagenet-normalization]
 ```
 eg. ```python3 test_disp.py --pretrained-dispnet checkpoints/kitti_sfm,epoch_size1000,seq5,s3.0,networkdisp_res,pretrained_encoderTrue,lossL1/02-21-10:43/dispnet_model_best.pth.tar --dataset-dir /scratch_net/kronos/zfang/dataset_kitti/kitti_original/kitti/ --dataset-list kitti_eval/test_files_eigen.txt --network disp_res --imagenet-normalization```
 
-notice that imagenet-normalization is quite important since the encoder is pretrained
+notice that imagenet-normalization is quite important if the encoder is pretrained on imagenet dataset.
 
-Test file list is available in kitti eval folder. To get fair comparison with [Original paper evaluation code](https://github.com/tinghuiz/SfMLearner/blob/master/kitti_eval/eval_depth.py), don't specify a posenet. However, if you do,  it will be used to solve the scale factor ambiguity, the only ground truth used to get it will be vehicle speed which is far more acceptable for real conditions quality measurement, but you will obviously get worse results.
-
-Pose evaluation is also available on [Odometry dataset](http://www.cvlibs.net/datasets/kitti/eval_odometry.php). Be sure to download both color images and pose !
-
-```bash
-python3 test_pose.py /path/to/posenet --dataset-dir /path/to/KITIT_odometry --sequences [09]
-```
-
-**ATE** (*Absolute Trajectory Error*) is computed as long as **RE** for rotation (*Rotation Error*). **RE** between `R1` and `R2` is defined as the angle of `R1*R2^-1` when converted to axis/angle. It corresponds to `RE = arccos( (trace(R1 @ R2^-1) - 1) / 2)`.
-While **ATE** is often said to be enough to trajectory estimation, **RE** seems important here as sequences are only `seq_length` frames long.
+Test file list is available in kitti eval folder. 
 
 ## Pretrained Nets
 
+Currently not available
+<!-- 
 [Avalaible here](https://drive.google.com/drive/folders/1H1AFqSS8wr_YzwG2xWwAQHTfXN5Moxmx)
-
-Arguments used :
-
-```bash
-python3 train.py /path/to/the/formatted/data/ -b4 -m0 -s2.0 --epoch-size 1000 --sequence-length 5 --log-output --with-gt
-```
-
+ -->
 ### Depth Results
 
-| Abs Rel | Sq Rel | RMSE  | RMSE(log) | Acc.1 | Acc.2 | Acc.3 |
-|---------|--------|-------|-----------|-------|-------|-------|
-| 0.181   | 1.341  | 6.236 | 0.262     | 0.733 | 0.901 | 0.964 | 
-
-### Pose Results
-
-5-frames snippets used
-
-|    | Seq. 09              | Seq. 10              |
-|----|----------------------|----------------------|
-|ATE | 0.0179 (std. 0.0110) | 0.0141 (std. 0.0115) |
-|RE  | 0.0018 (std. 0.0009) | 0.0018 (std. 0.0011) | 
-
-
-
-## Other Implementations
-
-[TensorFlow](https://github.com/tinghuiz/SfMLearner) by tinghuiz (original code, and paper author)
+|      specification      | Abs Rel | Sq Rel | RMSE  | RMSE(log) | Acc.1 | Acc.2 | Acc.3 |
+|-------------------------|---------|--------|-------|-----------|-------|-------|-------|
+| disp_vgg_BN with L1 loss| 0.105   | 0.697  | 4.655 | 0.188     | 0.733 | 0.901 | 0.964 | 
