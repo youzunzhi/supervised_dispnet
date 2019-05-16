@@ -2,7 +2,7 @@
 This codebase implements the system described in the paper:
 
 An Empirical Study of Deep Models for Monocular Depth Estimation
-****************(need to be change)
+<!-- ****************(need to be change)
 [Zhicheng Fang](),
 
 In WACV 2020.
@@ -10,7 +10,7 @@ In WACV 2020.
 See the [project webpage](https://people.eecs.berkeley.edu/~tinghuiz/projects/SfMLearner/) for more details. 
 
 ![sample_results](misc/cityscapes_sample_results.gif)
-****************
+**************** -->
 
 ## Preamble
 This codebase was developed and tested with Pytorch 0.4.1, CUDA 9.1 and Ubuntu 16.04. And it is built based on [SfMLearner Pytorch version](https://github.com/ClementPinard/SfmLearner-Pytorch)
@@ -38,7 +38,7 @@ It is also advised to have python3 bindings for opencv for tensorboard visualiza
 
 ### What has been done
 
-* Training has been tested on KITTI and NYU DEPTH V2.
+* Training has been tested on KITTI and NYU Depth v2.
 * As for the multiscale loss, the loss weight is divided by `2.3` when downscaling instead of `2`. This is the results of empiric experiments, so the optimal value is clearly not carefully determined.
 
 ## Preparing training data
@@ -105,8 +105,14 @@ Currently not available
 <!-- 
 [Avalaible here](https://drive.google.com/drive/folders/1H1AFqSS8wr_YzwG2xWwAQHTfXN5Moxmx)
  -->
-### Depth Results
+### KITTI Depth Results
 
 |      specification      | Abs Rel | Sq Rel | RMSE  | RMSE(log) | Acc.1 | Acc.2 | Acc.3 |
 |-------------------------|---------|--------|-------|-----------|-------|-------|-------|
-| disp_vgg_BN with L1 loss| 0.105   | 0.697  | 4.655 | 0.188     | 0.733 | 0.901 | 0.964 | 
+| disp_vgg_BN with L1 loss| 0.105   | 0.723  | 4.537 | 0.186     | 0.873 | 0.959 | 0.983 | 
+
+### NYU Depth Results
+
+|      specification      | Abs Rel | Sq Rel | RMSE  | RMSE(log) | Acc.1 | Acc.2 | Acc.3 |
+|-------------------------|---------|--------|-------|-----------|-------|-------|-------|
+| disp_vgg_BN with L1 loss| 0.102   | 0.075  | 0.410 | 0.157     | 0.868 | 0.962 | 0.988 | 
