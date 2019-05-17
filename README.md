@@ -32,6 +32,8 @@ tensorboardX
 blessings
 progressbar2
 path.py
+tqdm
+torchvision
 ```
 
 It is also advised to have python3 bindings for opencv for tensorboard visualizations
