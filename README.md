@@ -18,7 +18,7 @@ This codebase was developed and tested with Pytorch 0.4.1, CUDA 9.1 and Ubuntu 1
 ## Prerequisite
 
 ```bash
-pip3 install -r requirements.txt
+pip install -r requirements.txt
 ```
 
 or install manually the following packages :
