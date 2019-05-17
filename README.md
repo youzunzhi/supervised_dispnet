@@ -18,7 +18,7 @@ This codebase was developed and tested with Pytorch 0.4.1, CUDA 9.1 and Ubuntu 1
 ## Prerequisite
 
 ```bash
-pip3 install -r requirements.txt
+pip install -r requirements.txt
 ```
 
 or install manually the following packages :
@@ -96,7 +96,6 @@ Disparity evaluation is avalaible
 ```bash
 python3 test_disp.py --pretrained-dispnet /path/to/dispnet --pretrained-posenet /path/to/posenet --dataset-dir /path/to/KITTI_raw --dataset-list /path/to/test_files_list --network disp_vgg_BN [--imagenet-normalization]
 ```
-eg. ```python3 test_disp.py --pretrained-dispnet checkpoints/kitti_sfm,epoch_size1000,seq5,s3.0,networkdisp_res,pretrained_encoderTrue,lossL1/02-21-10:43/dispnet_model_best.pth.tar --dataset-dir /scratch_net/kronos/zfang/dataset_kitti/kitti_original/kitti/ --dataset-list kitti_eval/test_files_eigen.txt --network disp_res --imagenet-normalization```
 
 notice that imagenet-normalization is quite important if the encoder is pretrained on imagenet dataset.
 
