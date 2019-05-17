@@ -133,7 +133,7 @@ def main():
         #gt depth shape (1, 480, 640)
         #gt_depth = sample['gt_depth']#;pdb.set_trace()
 
-        tgt_img = sample['tgt'];pdb.set_trace()
+        tgt_img = sample['tgt']#;pdb.set_trace()
 
         #ref_imgs = sample['ref']
         
@@ -159,7 +159,7 @@ def main():
         	normalize = torchvision.transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
         
         if args.gt_type == 'NYU':
-            tgt_img = normalize(tgt_img).unsqueeze(0).to(device);pdb.set_trace()
+            tgt_img = normalize(tgt_img).unsqueeze(0).to(device)#;pdb.set_trace()
         elif args.gt_type == 'KITTI':
             tgt_img = normalize(tgt_img/255).unsqueeze(0).to(device)#;pdb.set_trace()
 
