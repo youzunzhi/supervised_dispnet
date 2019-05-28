@@ -15,8 +15,8 @@ import models
 from datasets.nyu_depth_v2 import NYU_Depth_V2
 from utils import tensor2array, save_checkpoint, save_path_formatter
 from inverse_warp import inverse_warp
-
-from loss_functions import smooth_DORN_loss, DORN_loss, berhu_loss, Multiscale_berhu_loss, l1_loss, Multiscale_L1_loss, Multiscale_L2_loss, l2_loss, Multiscale_scale_inv_loss, Scale_invariant_loss, photometric_reconstruction_loss, explainability_loss, smooth_loss, compute_errors
+import loss_functions
+#from loss_functions import smooth_DORN_loss, DORN_loss, berhu_loss, Multiscale_berhu_loss, l1_loss, Multiscale_L1_loss, Multiscale_L2_loss, l2_loss, Multiscale_scale_inv_loss, Scale_invariant_loss, photometric_reconstruction_loss, explainability_loss, smooth_loss, compute_errors
 from logger import TermLogger, AverageMeter
 from tensorboardX import SummaryWriter
 import pdb
@@ -33,8 +33,8 @@ parser.add_argument('--loss', default='Multi_L1', type=str, help='loss type')
 parser.add_argument('--ordinal-c', default=80, type=int, metavar='N', help='DORN loss channel number')
 parser.add_argument('--diff-lr', action='store_true', help='use different learning rate for encoder and decoder')
 parser.add_argument('--sgd', action='store_true', help='use sgd optimizer, if not then adam')
-#try about sftp
-parser.add_argument('--record', action='store_true', help='save every 10 epochsize to check optimizer and loss influence over learning progress')
+parser.add_argument('--record', action='store_true', help='save every epoch checkpoints to check optimizer and loss influence over learning progress')
+parser.add_argument("--unsupervised", action='store_true', help="to have unsupervised loss")
 
 parser.add_argument('data', metavar='DIR',
                     help='path to dataset')
@@ -195,12 +195,16 @@ def main():
     	disp_net = models.DispNetS(datasets=args.dataset).to(device)
     elif args.network=='disp_res':
     	disp_net = models.Disp_res(datasets=args.dataset).to(device)
+    elif args.network=='disp_res_50':
+        disp_net = models.Disp_res_50(datasets=args.dataset).to(device)
     elif args.network=='disp_vgg':
     	disp_net = models.Disp_vgg_feature(datasets=args.dataset).to(device)
     elif args.network=='disp_vgg_BN':
         disp_net = models.Disp_vgg_BN(datasets=args.dataset).to(device)
     elif args.network=='FCRN':
-        disp_net = models.FCRN(datasets=args.dataset).to(device)  
+        disp_net = models.FCRN(datasets=args.dataset).to(device)
+    elif args.network=='res50_aspp':
+        disp_net = models.res50_aspp(datasets=args.dataset).to(device)  
     elif args.network=='ASPP':
         disp_net = models.deeplab_depth(datasets=args.dataset).to(device)  
     elif args.network=='disp_res_101':
@@ -354,17 +358,22 @@ def train(args, train_loader, disp_net, pose_exp_net, optimizer, epoch_size, log
 
 
     end = time.time()
-    logger.train_bar.update(0);#pdb.set_trace
-    #debug for gt_depth transform
+    logger.train_bar.update(0);
+    
+    #this is for both supervised and unsupervised edition
+    for i, (tgt_img, ref_imgs, intrinsics, intrinsics_inv, gt_depth) in enumerate(train_loader):
+    #this is for supervised only edition
+    #for i, (tgt_img, gt_depth) in enumerate(train_loader):
 
-    for i, (tgt_img, gt_depth) in enumerate(train_loader):
         # measure data loading time
         data_time.update(time.time() - end)
         tgt_img = tgt_img.to(device)
-        #ref_imgs = [img.to(device) for img in ref_imgs]
-        #intrinsics = intrinsics.to(device)
-        #intrinsics_inv = intrinsics_inv.to(device); #pdb.set_trace()#check data type of gt_depth
-        #print(type(gt_depth))
+
+        if args.unsupervised:    
+            ref_imgs = [img.to(device) for img in ref_imgs]
+            intrinsics = intrinsics.to(device)
+            intrinsics_inv = intrinsics_inv.to(device); 
+            explainability_mask, pose = pose_exp_net(tgt_img, ref_imgs)
 
         gt_depth = gt_depth.to(device)#;pdb.set_trace()
         if args.dataset=='nyu':
@@ -378,47 +387,47 @@ def train(args, train_loader, disp_net, pose_exp_net, optimizer, epoch_size, log
             disparities = disp_net(tgt_img)
             depth = [1/disp for disp in disparities]
             #explainability_mask, pose = pose_exp_net(tgt_img, ref_imgs)
-        
-        if args.loss=='Multi_L1':
-            loss_1 = Multiscale_L1_loss(gt_depth, depth)
-        elif args.loss=='Multi_berhu':
-            loss_1 = Multiscale_berhu_loss(gt_depth, depth)
-        elif args.loss=='Multi_L2':
-            loss_1 = Multiscale_L2_loss(gt_depth, depth)
-        elif args.loss=='L1': 
-            loss_1 = l1_loss(gt_depth, depth, args.dataset)
-        elif args.loss=='berhu': 
-            loss_1 = berhu_loss(gt_depth, depth, args.dataset)    
-        elif args.loss=='L2':     
-            loss_1 = l2_loss(gt_depth, depth, args.dataset)
-        elif args.loss=='scale_inv':
-            loss_1 = Scale_invariant_loss(gt_depth, depth, args.dataset)
-        elif args.loss=='Multi_scale_inv':
-            loss_1 = Multiscale_scale_inv_loss(gt_depth, depth)
-        elif args.loss=='DORN':
-            loss_1 = DORN_loss(gt_depth, pred_ord, target_c, args.dataset)
+
+        if not args.unsupervised: 
+            if args.loss=='Multi_L1':
+                loss_1 = loss_functions.Multiscale_L1_loss(gt_depth, depth)
+            elif args.loss=='Multi_full_L1':
+                loss_1 = loss_functions.Multiscale_FULL_L1_loss(gt_depth, depth)
+            elif args.loss=='Multi_berhu':
+                loss_1 = loss_functions.Multiscale_berhu_loss(gt_depth, depth)
+            elif args.loss=='Multi_L2':
+                loss_1 = loss_functions.Multiscale_L2_loss(gt_depth, depth)
+            elif args.loss=='L1': 
+                loss_1 = loss_functions.l1_loss(gt_depth, depth, args.dataset)
+            elif args.loss=='berhu': 
+                loss_1 = loss_functions.berhu_loss(gt_depth, depth, args.dataset)    
+            elif args.loss=='L2':     
+                loss_1 = loss_functions.l2_loss(gt_depth, depth, args.dataset)
+            elif args.loss=='scale_inv':
+                loss_1 = loss_functions.Scale_invariant_loss(gt_depth, depth, args.dataset)
+            elif args.loss=='Multi_scale_inv':
+                loss_1 = loss_functions.Multiscale_scale_inv_loss(gt_depth, depth)
+            elif args.loss=='DORN':
+                loss_1 = loss_functions.DORN_loss(gt_depth, pred_ord, target_c, args.dataset)
+            else:
+                raise "undefined loss"
         else:
-            raise "undefined loss"
-        #loss_1 = supervised_l1_loss(gt_depth, depth)
-        #loss_1 = supervised_l2_loss(gt_depth, depth)
-        #loss_1 = Scale_invariant_loss(gt_depth, depth)
-        #loss_1 = Multiscale_L1_loss(gt_depth, depth)
-        #loss_1 = Multiscale_L2_loss(gt_depth, depth)
-        #original loss_1(unsupervised)
-        # loss_1 = photometric_reconstruction_loss(tgt_img, ref_imgs,
-        #                                          intrinsics, intrinsics_inv,
-        #                                          depth, explainability_mask, pose,
-        #                                          args.rotation_mode, args.padding_mode)
+            #original loss_1(unsupervised)
+            loss_1 = loss_functions.photometric_reconstruction_loss(tgt_img, ref_imgs,
+                                                                    intrinsics, intrinsics_inv,
+                                                                    depth, explainability_mask, pose,
+                                                                    args.rotation_mode, args.padding_mode)
+
         if w2 > 0:
-            loss_2 = explainability_loss(explainability_mask)
+            loss_2 = loss_functions.explainability_loss(explainability_mask)
         else:
             loss_2 = 0
         
         if args.loss == 'DORN':
-            loss_3 = smooth_DORN_loss(pred_ord)
+            loss_3 = loss_functions.smooth_DORN_loss(pred_ord)
             loss = w1*loss_1 + w2*loss_2 + w3*loss_3
         else:    
-            loss_3 = smooth_loss(depth)
+            loss_3 = loss_functions.smooth_loss(depth)
             loss = w1*loss_1 + w2*loss_2 + w3*loss_3
 
         if i > 0 and n_iter % args.print_freq == 0:
@@ -637,7 +646,7 @@ def validate_with_gt(args, val_loader, disp_net, epoch, logger, output_writers=[
         # errors.update(compute_errors(depth, output_depth*scale_factor))
 	#**************************************
 	#original
-        errors.update(compute_errors(depth, output_depth, dataset=args.dataset))#;pdb.set_trace()
+        errors.update(loss_functions.compute_errors(depth, output_depth, dataset=args.dataset, unsupervised=args.unsupervised))#;pdb.set_trace()
 
         # measure elapsed time
         batch_time.update(time.time() - end)

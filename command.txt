@@ -12,3 +12,7 @@ python3 test_disp.py --pretrained-dispnet /scratch/zfang/SfmLearner-Pytorch-mast
 cd /scratch_net/biwidl204/zfang/SfmLearner-Pytorch-master
  
 CUDA_VISIBLE_DEVICES=$SGE_GPU python3 train.py /scratch_net/biwidl204_second/zfang/kitti_sfm/ -b4 -m0.2 -s0.1 --epoch-size 3000 --sequence-length 3 --log-output --with-gt
+
+#check tensorboard for tracking performance
+tensorboard --logdir=checkpoints/
+#for the remote usage in tensorboard, first ssh -L 16006:127.0.0.1:6006 olivier@my_server_ip, then go to that link http://127.0.0.1:16006

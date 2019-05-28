@@ -65,7 +65,8 @@ class SequenceFolder(data.Dataset):
             ref_imgs = imgs[1:] 
         else:
             intrinsics = np.copy(sample['intrinsics'])
-        return tgt_img, gt_depth_tensor
+        return tgt_img, ref_imgs, intrinsics, np.linalg.inv(intrinsics), gt_depth_tensor
+        #return tgt_img, gt_depth_tensor
 
     def __len__(self):
         return len(self.samples)

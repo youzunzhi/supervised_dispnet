@@ -58,12 +58,16 @@ def main():
     	disp_net = models.DispNetS().to(device)
     elif args.network=='disp_res':
     	disp_net = models.Disp_res().to(device)
+    elif args.network=='disp_res_50':
+        disp_net = models.Disp_res_50().to(device)
     elif args.network=='disp_vgg':
     	disp_net = models.Disp_vgg_feature().to(device)
     elif args.network=='disp_vgg_BN':
         disp_net = models.Disp_vgg_BN().to(device)
     elif args.network=='FCRN':
         disp_net = models.FCRN().to(device)
+    elif args.network=='res50_aspp':
+        disp_net = models.res50_aspp().to(device)  
     elif args.network=='ASPP':
         disp_net = models.deeplab_depth().to(device)
     elif args.network=='disp_res_101':

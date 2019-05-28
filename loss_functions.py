@@ -237,6 +237,25 @@ def Multiscale_L1_loss(gt_depth,depth,pool_type="bilinear"):
         loss += (valid_gt-valid_pred).abs().mean()/(2**i)#smoothness scale variant can be other(since the smoothness one is also different)
     return loss
 
+def Multiscale_FULL_L1_loss(gt_depth,depth,pool_type="bilinear"):
+    pred_depth_list=[]
+    gt_depth_list=[]
+    for i in range(len(depth)):
+        enlarged_depth = F.upsample(depth[i], scale_factor=2**i, mode=pool_type)
+        pred_depth_list.append(torch.squeeze(enlarged_depth))
+        gt_depth_list.append(gt_depth)#4*128*416
+
+    loss = 0
+    for i in range(len(depth)):
+        current_gt, current_pred = gt_depth_list[i], pred_depth_list[i]
+        valid = (current_gt > 0) & (current_gt < 80)        
+        #valid = valid & crop_mask               
+        valid_gt = current_gt[valid]
+        valid_pred = current_pred[valid].clamp(1e-3, 80)#;pdb.set_trace()
+        #loss += ((valid_gt.to(torch.float32).abs()-valid_pred.abs())**2).mean()
+        loss += (valid_gt-valid_pred).abs().mean()/(2**i)#smoothness scale variant can be other(since the smoothness one is also different)
+    return loss
+
 def Multiscale_L2_loss(gt_depth,depth):
     pred_depth_list=[]
     for i in range(len(depth)):
@@ -380,7 +399,7 @@ def smooth_DORN_loss(pred_map):
     return loss
 
 @torch.no_grad()
-def compute_errors(gt, pred, dataset='kitti',crop=True):
+def compute_errors(gt, pred, dataset='kitti',crop=True,unsupervised=False):
     abs_diff, abs_rel, sq_rel, rmse, rmse_log, a1, a2, a3 = 0,0,0,0,0,0,0,0
     batch_size = gt.size(0)
 
@@ -408,8 +427,10 @@ def compute_errors(gt, pred, dataset='kitti',crop=True):
 
         valid_gt = current_gt[valid]
         valid_pred = current_pred[valid].clamp(1e-3, max_depth)
-
-        #valid_pred = valid_pred * torch.median(valid_gt)/torch.median(valid_pred)
+        
+        # for unsupervised training, this median compensation is needed
+        if unsupervised:
+            valid_pred = valid_pred * torch.median(valid_gt)/torch.median(valid_pred)
 
         thresh = torch.max((valid_gt / valid_pred), (valid_pred / valid_gt))
         a1 += (thresh < 1.25).float().mean()

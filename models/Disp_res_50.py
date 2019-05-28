@@ -1,9 +1,4 @@
-#this edition use same resnet 50 as the normal one but configure the decoder as the left-right unsupervised one
-#thus there something in this decoder is not reasonable(should change layer1 in encoder with stride of 2 for 
-#consistancy with left-right edition, but that one have not tried with pretrained weight)
-
-#before 23.05.19, all the test about disp_res is built upon this edition of code
-
+# this dispnet is totally based on true resnet 50 rather than the resnet edition mentioned in unsupervised left-right paper
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -51,10 +46,10 @@ def maxpool(kernel_size):
     p = (kernel_size - 1)//2
     return nn.MaxPool2d(kernel_size, stride=None, padding=p)
 
-class Disp_res(nn.Module):
+class Disp_res_50(nn.Module):
 
     def __init__(self, datasets ='kitti'):
-        super(Disp_res, self).__init__()
+        super(Disp_res_50, self).__init__()
         #not sure about the setting of these two parameter since the left-right consistancy one use alpha 0.3 and beta 0.01
         if datasets == 'kitti':
             self.alpha = 10
@@ -81,18 +76,17 @@ class Disp_res(nn.Module):
         
         #decode
         upconv_planes = [512, 256, 128, 64, 32, 16]
-        self.upconv6 = upconv(conv_planes[4]*4,   upconv_planes[0])
-        self.upconv5 = upconv(upconv_planes[0], upconv_planes[1])
+
+        self.upconv5 = upconv(conv_planes[4]*4, upconv_planes[1])
         self.upconv4 = upconv(upconv_planes[1], upconv_planes[2])
         self.upconv3 = upconv(upconv_planes[2], upconv_planes[3])
         self.upconv2 = upconv(upconv_planes[3], upconv_planes[4])
-        self.upconv1 = upconv(upconv_planes[4], upconv_planes[5])	
+        self.upconv1 = upconv(upconv_planes[4], upconv_planes[5])   
 
-        self.iconv6 = conv(upconv_planes[0] + conv_planes[3]*4, upconv_planes[0])
-        self.iconv5 = conv(upconv_planes[1] + conv_planes[2]*4, upconv_planes[1])
-        self.iconv4 = conv(upconv_planes[2] + conv_planes[1]*4, upconv_planes[2])
+        self.iconv5 = conv(upconv_planes[1] + conv_planes[3]*4, upconv_planes[1])
+        self.iconv4 = conv(upconv_planes[2] + conv_planes[2]*4, upconv_planes[2])
         #with depth result from last layer
-        self.iconv3 = conv(1 + upconv_planes[3] + conv_planes[1], upconv_planes[3])
+        self.iconv3 = conv(1 + upconv_planes[3] + conv_planes[1]*4, upconv_planes[3])
         self.iconv2 = conv(1 + upconv_planes[4] + conv_planes[0], upconv_planes[4])
         self.iconv1 = conv(1 + upconv_planes[5], upconv_planes[5])
 
@@ -165,44 +159,35 @@ class Disp_res(nn.Module):
             conv4 = conv4.detach()
             conv5 = conv5.detach()
         #skips
-
         skip1 = relu1
-        skip2 = pool1
-        skip3 = conv2
-        skip4 = conv3
-        skip5 = conv4
+        skip2 = conv2
+        skip3 = conv3
+        skip4 = conv4
 
         #decoder
-        upconv6 = crop_like(self.upconv6(conv5), skip5)
-        concat6 = torch.cat((upconv6, skip5), 1)
-        iconv6 = self.iconv6(concat6)
-
-        upconv5 = crop_like(self.upconv5(iconv6), skip4)
+        upconv5 = self.upconv5(conv5)  # H/16
         concat5 = torch.cat((upconv5, skip4), 1)
         iconv5 = self.iconv5(concat5)
 
-        upconv4 = crop_like(self.upconv4(iconv5), skip3)
+        upconv4 = self.upconv4(iconv5) # H/8
         concat4 = torch.cat((upconv4, skip3), 1)
         iconv4 = self.iconv4(concat4)
         disp4 = self.alpha * self.predict_disp4(iconv4) + self.beta
 
-        upconv3 = crop_like(self.upconv3(iconv4), skip2)
-        #disp4_up = upsample_nn_nearest(disp4)
-        disp4_up = crop_like(F.interpolate(disp4, scale_factor=2, mode='bilinear', align_corners=False), skip2)
+        upconv3 = self.upconv3(iconv4) # H/4
+        disp4_up = upsample_nn_nearest(disp4)#;pdb.set_trace()
         concat3 = torch.cat((upconv3, skip2, disp4_up), 1)
         iconv3 = self.iconv3(concat3)
         disp3 = self.alpha * self.predict_disp3(iconv3) + self.beta
 
-        upconv2 = crop_like(self.upconv2(iconv3), skip1)
-        #disp3_up = upsample_nn_nearest(disp3)
-        disp3_up = crop_like(F.interpolate(disp3, scale_factor=2, mode='bilinear', align_corners=False), skip1)
+        upconv2 = self.upconv2(iconv3) # H/2
+        disp3_up = upsample_nn_nearest(disp3)
         concat2 = torch.cat((upconv2, skip1, disp3_up), 1)
         iconv2 = self.iconv2(concat2)
         disp2 = self.alpha * self.predict_disp2(iconv2) + self.beta
 
-        upconv1 = crop_like(self.upconv1(iconv2), x)
-        #disp2_up = upsample_nn_nearest(disp2)
-        disp2_up = crop_like(F.interpolate(disp2, scale_factor=2, mode='bilinear', align_corners=False), x)
+        upconv1 = self.upconv1(iconv2) # H
+        disp2_up = upsample_nn_nearest(disp2)
         concat1 = torch.cat((upconv1, disp2_up), 1)
         iconv1 = self.iconv1(concat1)
         disp1 = self.alpha * self.predict_disp1(iconv1) + self.beta
@@ -261,5 +246,3 @@ class Bottleneck(nn.Module):
 
         return out
 #residual block
-
-

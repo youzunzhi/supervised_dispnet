@@ -39,10 +39,10 @@ scikit-image
 
 It is also advised to have python3 bindings for opencv for tensorboard visualizations
 
-### What has been done
+<!-- ### What has been done
 
 * Training has been tested on KITTI and NYU Depth v2.
-* As for the multiscale loss, the loss weight is divided by `2.3` when downscaling instead of `2`. This is the results of empiric experiments, so the optimal value is clearly not carefully determined.
+* As for the multiscale loss, the loss weight is divided by `2.3` when downscaling instead of `2`. This is the results of empiric experiments, so the optimal value is clearly not carefully determined. -->
 
 ## Preparing training data
 Preparation is roughly the same as in the SfMLearner Pytorch version.

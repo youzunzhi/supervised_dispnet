@@ -125,8 +125,15 @@ class UpProject(nn.Module):
 
 class FCRN(nn.Module):
 
-    def __init__(self):
+    def __init__(self, datasets ='kitti'):
         super(FCRN, self).__init__()
+        if datasets == 'kitti':
+            self.alpha = 10
+            self.beta = 0.01
+        elif datasets == 'nyu':
+            self.alpha = 10#not sure about this number choice(I just think nyu should be more detailed)
+            self.beta = 0.1
+
         self.inplanes = 64
         # self.n_classes = n_classes
 
@@ -185,6 +192,10 @@ class FCRN(nn.Module):
     #     else:
     #         print("do not load pretrained weights for the monocular model")
 
+    def init_resnet50_params(self, resnet50):
+        initial_state_dict = resnet50.state_dict()
+        return initial_state_dict
+
     def load_res_params(self, params):
         model_dict = self.state_dict()
         # 1. filter out unnecessary keys
@@ -240,7 +251,7 @@ class FCRN(nn.Module):
         x = self.conv3(x)
         #x = self.relu(x)
         #try with original last layer for this whole code base
-        x = 10*self.Sigmoid(x)+0.01
+        x = self.alpha*self.Sigmoid(x)+self.beta
         
 
         x = nn.functional.interpolate(x, size=inp_shape, mode='bilinear', align_corners=True)
@@ -250,10 +261,6 @@ class FCRN(nn.Module):
             return [x]
         else:
             return x
-
-    def init_resnet50_params(self, resnet50):
-        initial_state_dict = resnet50.state_dict()
-        return initial_state_dict
 
     # if you want to load from downloaded pretrained model:
     # def init_resnet50_params(self, model_path):
