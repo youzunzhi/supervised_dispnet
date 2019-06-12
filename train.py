@@ -1,7 +1,6 @@
 import argparse
 import time
 import csv
-
 import numpy as np
 import torch
 from torch.autograd import Variable
@@ -20,8 +19,9 @@ import loss_functions
 from logger import TermLogger, AverageMeter
 from tensorboardX import SummaryWriter
 import pdb
-
 import utils
+#setup the pretrained model directory
+import os
 
 parser = argparse.ArgumentParser(description='Structure from Motion Learner training on KITTI and CityScapes Dataset',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -89,7 +89,7 @@ parser.add_argument('-f', '--training-output-freq', type=int, help='frequence fo
 best_error = -1
 n_iter = 0
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-
+os.environ['TORCH_MODEL_ZOO'] = '/scratch_net/airfox/zfang/pytorch_init_weight/models'
 
 def main():
     global best_error, n_iter, device
@@ -360,10 +360,10 @@ def train(args, train_loader, disp_net, pose_exp_net, optimizer, epoch_size, log
     end = time.time()
     logger.train_bar.update(0);
     
-    #this is for both supervised and unsupervised edition
-    for i, (tgt_img, ref_imgs, intrinsics, intrinsics_inv, gt_depth) in enumerate(train_loader):
-    #this is for supervised only edition
-    #for i, (tgt_img, gt_depth) in enumerate(train_loader):
+    # this is for both supervised and unsupervised edition
+    # for i, (tgt_img, ref_imgs, intrinsics, intrinsics_inv, gt_depth) in enumerate(train_loader):
+    # this is for supervised only edition
+    for i, (tgt_img, gt_depth) in enumerate(train_loader):
 
         # measure data loading time
         data_time.update(time.time() - end)

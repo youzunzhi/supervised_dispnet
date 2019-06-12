@@ -20,6 +20,7 @@ parser = argparse.ArgumentParser(description='Script for DispNet testing with co
 parser.add_argument("--network", required=True, type=str, help="network type")
 parser.add_argument('--imagenet-normalization', action='store_true', help='use imagenet parameter for normalization.')
 parser.add_argument('--ordinal-c', default=80, type=int, metavar='N', help='DORN loss channel number')
+parser.add_argument("--unsupervised", action='store_true', help="to have unsupervised loss")
 #parser.add_argument("--dataset", default='kitti', type=str, help="dataset name")
 
 
@@ -270,12 +271,11 @@ def main():
 
             scale_factor = sample['displacement'] / mean_displacement_magnitude
             errors[0,:,j] = compute_errors(gt_depth, pred_depth_zoomed*scale_factor)
-
-        #scale_factor = np.median(gt_depth)/np.median(pred_depth_zoomed)
-
+        if args.unsupervised:
+            scale_factor = np.median(gt_depth)/np.median(pred_depth_zoomed)
+        else:
+            scale_factor = 1#;pdb.set_trace()
         #gt_scale[j] = np.median(gt_depth)
-
-        scale_factor = 1#;pdb.set_trace()
         errors[1,:,j] = compute_errors(gt_depth, pred_depth_zoomed*scale_factor)#;pdb.set_trace()
 
         # #ground truth depth production

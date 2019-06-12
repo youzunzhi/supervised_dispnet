@@ -63,6 +63,7 @@ class NYU_Depth_V2(data.Dataset):
             # image and depth is of datatype float64 and resolution by(292,384)
             #image, depth = image.astype(np.float32), depth.astype(np.float32) there are operation in transform that make the image and depth into double
             image, depth = transform_chw(self.transform, [image, depth])
+        # if want to be incorporated in unsupervised setting, it need to keep shape as tgt_img, ref_imgs, intrinsics, intrinsics_inv, gt_depth
         return image, depth
 
     def compute_image_mean(self):
