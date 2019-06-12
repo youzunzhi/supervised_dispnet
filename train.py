@@ -58,7 +58,7 @@ parser.add_argument('--epoch-size', default=0, type=int, metavar='N',
                     help='manual epoch size (will match dataset size if not set)')
 parser.add_argument('-b', '--batch-size', default=4, type=int,
                     metavar='N', help='mini-batch size')
-parser.add_argument('--lr', '--learning-rate', default=2e-4, type=float,
+parser.add_argument('--lr', '--learning-rate', default=1e-4, type=float,
                     metavar='LR', help='initial learning rate')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum for sgd, alpha parameter for adam')
@@ -81,7 +81,7 @@ parser.add_argument('--log-full', default='progress_log_full.csv', metavar='PATH
                     help='csv where to save per-gradient descent train stats')
 parser.add_argument('-p', '--photo-loss-weight', type=float, help='weight for photometric loss', metavar='W', default=1)
 parser.add_argument('-m', '--mask-loss-weight', type=float, help='weight for explainabilty mask loss', metavar='W', default=0)
-parser.add_argument('-s', '--smooth-loss-weight', type=float, help='weight for disparity smoothness loss', metavar='W', default=0.1)
+parser.add_argument('-s', '--smooth-loss-weight', type=float, help='weight for disparity smoothness loss', metavar='W', default=0)
 parser.add_argument('--log-output', action='store_true', help='will log dispnet outputs and warped imgs at validation step')#'store_true' for boolean
 parser.add_argument('-f', '--training-output-freq', type=int, help='frequence for outputting dispnet outputs and warped imgs at training for all scales if 0 will not output',
                     metavar='N', default=0)
@@ -176,11 +176,13 @@ def main():
         )
 
     #nyu loader does have scene number
-    # print('{} samples found in {} train scenes'.format(len(train_set), len(train_set.scenes)))
-    # print('{} samples found in {} valid scenes'.format(len(val_set), len(val_set.scenes)))
+    if args.dataset == 'kitti':
+        print('{} samples found in {} train scenes'.format(len(train_set), len(train_set.scenes)))
+        print('{} samples found in {} valid scenes'.format(len(val_set), len(val_set.scenes)))
+
     train_loader = torch.utils.data.DataLoader(
         train_set, batch_size=args.batch_size, shuffle=True,
-        num_workers=args.workers, pin_memory=True)
+        num_workers=args.workers, pin_memory=True)#;pdb.set_trace()
     val_loader = torch.utils.data.DataLoader(
         val_set, batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers, pin_memory=True)

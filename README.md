@@ -49,7 +49,7 @@ Preparation is roughly the same as in the SfMLearner Pytorch version.
 
 For [KITTI](http://www.cvlibs.net/datasets/kitti/raw_data.php), first download the dataset using this [script](http://www.cvlibs.net/download.php?file=raw_data_downloader.zip) provided on the official website, and then run the following command. The `--with-depth` option will save resized copies of groundtruth to help you setting hyper parameters. The `--with-pose` will dump the sequence pose in the same format as Odometry dataset (see pose evaluation)
 ```bash
-python3 data/prepare_train_data.py /path/to/raw/kitti/dataset/ --dataset-format 'kitti' --dump-root /path/to/resulting/formatted/data/ --width 416 --height 128 --num-threads 4 [--static-frames /path/to/static_frames.txt] [--with-depth] [--with-pose]
+python3 data/prepare_train_data.py /path/to/raw/kitti/dataset/ --dataset-format 'kitti' --dump-root /path/to/resulting/formatted/data/ --width 416 --height 128 --num-threads 8 [--static-frames data/static_frames.txt] [--with-depth] [--with-pose]
 ```
 
 For [NYU](https://cs.nyu.edu/~silberman/datasets/nyu_depth_v2.html), first download the dataset using this [script](horatio.cs.nyu.edu/mit/silberman/nyu_depth_v2/nyu_depth_v2_raw.zip) provided on the official website, then follow the instruction below and corresponding file like process_raw.m is saved in data/nyudepth_preparation. 
@@ -76,7 +76,7 @@ Notice that for Cityscapes the `img_height` is set to 171 because we crop out th
 ## Training
 Once the data are formatted following the above instructions, you should be able to train the model by running the following command
 ```bash
-python3 train.py /path/to/the/formatted/data/ -b4 -m0.2 -s0.1 --epoch-size 3000 --sequence-length 3 --log-output [--with-gt] --network disp_vgg_BN [--pretrained-enocoder] [--imagenet-normalization] --loss L1 --dataset nyu [--pretrained-disp /path/to/the/existing_weights/]
+python3 train.py /path/to/the/formatted/data/ -b4 -m0.0 -s0.0 --epoch-size 3000 --sequence-length 3 --log-output [--with-gt] --network disp_vgg_BN [--pretrained-encoder] [--imagenet-normalization] --loss L1 --dataset nyu [--pretrained-disp /path/to/the/existing_weights/]
 ```
 You can then start a `tensorboard` session in this folder by
 ```bash
