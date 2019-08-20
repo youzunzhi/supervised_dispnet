@@ -22,6 +22,8 @@ import pdb
 import utils
 #setup the pretrained model directory
 import os
+import networks
+from layers import disp_to_depth
 
 parser = argparse.ArgumentParser(description='Structure from Motion Learner training on KITTI and CityScapes Dataset',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -35,6 +37,8 @@ parser.add_argument('--diff-lr', action='store_true', help='use different learni
 parser.add_argument('--sgd', action='store_true', help='use sgd optimizer, if not then adam')
 parser.add_argument('--record', action='store_true', help='save every epoch checkpoints to check optimizer and loss influence over learning progress')
 parser.add_argument("--unsupervised", action='store_true', help="to have unsupervised loss")
+parser.add_argument('--data-amount', default=1, type=float, metavar='M', help='percentage of data to be trained')
+parser.add_argument("--monodepth2", action='store_true', help="to finetune over monodepth2 model")
 
 parser.add_argument('data', metavar='DIR',
                     help='path to dataset')
@@ -98,7 +102,7 @@ def main():
         from datasets.stacked_sequence_folders import SequenceFolder
     elif args.dataset_format == 'sequential':
         from datasets.sequence_folders import SequenceFolder
-    save_path = save_path_formatter(args, parser)
+    save_path = save_path_formatter(args, parser)#;pdb.set_trace()
     args.save_path = 'checkpoints'/save_path
     print('=> will save everything to {}'.format(args.save_path))
     args.save_path.makedirs_p()
@@ -115,8 +119,14 @@ def main():
     # Data loading code: different dataloader for different dataset
     if args.dataset == 'kitti':
         if args.imagenet_normalization:
-        	normalize = custom_transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                                    std=[0.229, 0.224, 0.225])
+            if args.monodepth2:
+            # this date normalize of monodepth2 is written inside the dispnet
+            # thus we just use this 0 and 1 that do not change data
+                normalize = custom_transforms.Normalize(mean=[0, 0, 0],
+                                                        std=[1, 1, 1])
+            else:
+            	normalize = custom_transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                                        std=[0.229, 0.224, 0.225])
         else:
         	normalize = custom_transforms.Normalize(mean=[0.5, 0.5, 0.5],
                                                     std=[0.5, 0.5, 0.5])
@@ -133,14 +143,15 @@ def main():
 
         print("=> fetching scenes in '{}'".format(args.data))
 
-    #different dataloader for different dataset
-
+    # different dataloader for different dataset
+    # add in percentage of data
         train_set = SequenceFolder(
             args.data,
             transform=train_transform,
             seed=args.seed,
             train=True,
-            sequence_length=args.sequence_length
+            sequence_length=args.sequence_length,
+            percentage=args.data_amount
         )
 
         # if no Groundtruth is avalaible, Validation set is the same type as training set to measure photometric loss from warping
@@ -175,17 +186,24 @@ def main():
             debug=False
         )
 
-    #nyu loader does have scene number
+    #nyu loader does not have scene number
     if args.dataset == 'kitti':
         print('{} samples found in {} train scenes'.format(len(train_set), len(train_set.scenes)))
         print('{} samples found in {} valid scenes'.format(len(val_set), len(val_set.scenes)))
 
+    # train_loader = torch.utils.data.DataLoader(
+    #     train_set, batch_size=args.batch_size, shuffle=True,
+    #     num_workers=args.workers, pin_memory=True)#;pdb.set_trace()
+    # val_loader = torch.utils.data.DataLoader(
+    #     val_set, batch_size=args.batch_size, shuffle=False,
+    #     num_workers=args.workers, pin_memory=True)
+
     train_loader = torch.utils.data.DataLoader(
         train_set, batch_size=args.batch_size, shuffle=True,
-        num_workers=args.workers, pin_memory=True)#;pdb.set_trace()
+        num_workers=args.batch_size, pin_memory=True)#;pdb.set_trace()
     val_loader = torch.utils.data.DataLoader(
         val_set, batch_size=args.batch_size, shuffle=False,
-        num_workers=args.workers, pin_memory=True)
+        num_workers=args.batch_size, pin_memory=True)
 
     if args.epoch_size == 0:
         args.epoch_size = len(train_loader)
@@ -193,30 +211,57 @@ def main():
     # create model
     print("=> creating model")
     #changing different network
-    if args.network=='dispnet':
-    	disp_net = models.DispNetS(datasets=args.dataset).to(device)
-    elif args.network=='disp_res':
-    	disp_net = models.Disp_res(datasets=args.dataset).to(device)
-    elif args.network=='disp_res_50':
-        disp_net = models.Disp_res_50(datasets=args.dataset).to(device)
-    elif args.network=='disp_vgg':
-    	disp_net = models.Disp_vgg_feature(datasets=args.dataset).to(device)
-    elif args.network=='disp_vgg_BN':
-        disp_net = models.Disp_vgg_BN(datasets=args.dataset).to(device)
-    elif args.network=='FCRN':
-        disp_net = models.FCRN(datasets=args.dataset).to(device)
-    elif args.network=='res50_aspp':
-        disp_net = models.res50_aspp(datasets=args.dataset).to(device)  
-    elif args.network=='ASPP':
-        disp_net = models.deeplab_depth(datasets=args.dataset).to(device)  
-    elif args.network=='disp_res_101':
-        disp_net = models.Disp_res_101(datasets=args.dataset).to(device)
-    elif args.network=='DORN':
-        disp_net = models.DORN(freeze=args.diff_lr, datasets=args.dataset).to(device)
-    elif args.network=='disp_vgg_BN_DORN':
-        disp_net = models.Disp_vgg_BN_DORN(ordinal_c=args.ordinal_c, datasets=args.dataset).to(device)
+    if args.monodepth2:
+        #add in code about the monodepth2 model
+        # consider about add this part into the monodepth2.py for convenience
+        #import networks
+        mono2_models = {}
+        #optim_params = []
+        #configure encoder
+        if args.network=='disp_vgg_BN':
+            mono2_models["encoder"] = networks.vggEncoder(
+                num_layers = 16, pretrained = False).to(device)
+        elif args.network=='disp_res_18':    
+            mono2_models["encoder"] = networks.ResnetEncoder(
+                num_layers = 18, pretrained = False).to(device)
+        else:
+            raise "undefined network"
+        #optim_params += list(mono2_models["encoder"].parameters())
+        #configure decoder
+        mono2_models["depth"] = networks.DepthDecoder(
+            mono2_models["encoder"].num_ch_enc).to(device)
+        #optim_params += list(mono2_models["depth"].parameters())
+        # when monodepth2, it must load existing weight (not include adam)
+        load_model(pretrained_model = mono2_models, weights_folder = args.pretrained_disp)
+        #construct this disp_net to be compatiable with existing framework
+        disp_net = models.monodepth2(encoder = mono2_models["encoder"], decoder = mono2_models["depth"])
     else:
-    	raise "undefined network"
+        if args.network=='dispnet':
+        	disp_net = models.DispNetS(datasets=args.dataset).to(device)
+        elif args.network=='disp_res':
+        	disp_net = models.Disp_res(datasets=args.dataset).to(device)
+        elif args.network=='disp_res_50':
+            disp_net = models.Disp_res_50(datasets=args.dataset).to(device)
+        elif args.network=='disp_res_18':
+            disp_net = models.Disp_res_18(datasets=args.dataset).to(device)
+        elif args.network=='disp_vgg':
+        	disp_net = models.Disp_vgg_feature(datasets=args.dataset).to(device)
+        elif args.network=='disp_vgg_BN':
+            disp_net = models.Disp_vgg_BN(datasets=args.dataset).to(device)
+        elif args.network=='FCRN':
+            disp_net = models.FCRN(datasets=args.dataset).to(device)
+        elif args.network=='res50_aspp':
+            disp_net = models.res50_aspp(datasets=args.dataset).to(device)  
+        elif args.network=='ASPP':
+            disp_net = models.deeplab_depth(datasets=args.dataset).to(device)  
+        elif args.network=='disp_res_101':
+            disp_net = models.Disp_res_101(datasets=args.dataset).to(device)
+        elif args.network=='DORN':
+            disp_net = models.DORN(freeze=args.diff_lr, datasets=args.dataset).to(device)
+        elif args.network=='disp_vgg_BN_DORN':
+            disp_net = models.Disp_vgg_BN_DORN(ordinal_c=args.ordinal_c, datasets=args.dataset).to(device)
+        else:
+        	raise "undefined network"
 
     output_exp = args.mask_loss_weight > 0
     if not output_exp:
@@ -230,29 +275,34 @@ def main():
     else:
         pose_exp_net.init_weights()
 
-    if args.pretrained_disp:
+    if args.pretrained_disp and (not args.monodepth2):
         print("=> using pre-trained weights for Dispnet")
         weights = torch.load(args.pretrained_disp)
         disp_net.load_state_dict(weights['state_dict'])
     # for the use of disp_vgg with pretrained
 
     else:
-        disp_net.init_weights(use_pretrained_weights=args.pretrained_encoder)# decide whether use pretrained encoder
+        if not args.monodepth2: 
+            disp_net.init_weights(use_pretrained_weights=args.pretrained_encoder)# decide whether use pretrained encoder
     
     if not args.diff_lr:
         print('=> setting adam solver')
 
+        # optim_params = [
+        #     {'params': disp_net.parameters(), 'lr': args.lr},
+        #     {'params': pose_exp_net.parameters(), 'lr': args.lr}
+        # ]
+        #if not args.monodepth2: 
         optim_params = [
-            {'params': disp_net.parameters(), 'lr': args.lr},
-            {'params': pose_exp_net.parameters(), 'lr': args.lr}
+            {'params': disp_net.parameters(), 'lr': args.lr}
         ]
-        
+
         if args.sgd:
             optimizer = torch.optim.SGD(optim_params, lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
         else:
             optimizer = torch.optim.Adam(optim_params,
                                          betas=(args.momentum, args.beta),
-                                         weight_decay=args.weight_decay)
+                                         weight_decay=args.weight_decay)# these 3 parameters are all the default parameter of adam 
     else:
         # set as DORN 
         # different modules have different learning rate
@@ -268,8 +318,9 @@ def main():
 
     if args.pretrained_disp:
         print("=> using pre-trained parameters for adam")
-        weights = torch.load(args.pretrained_disp)
-        optimizer.load_state_dict(weights['optimizer'])
+        if not args.monodepth2:#if monodepth2, not load optimizer
+            weights = torch.load(args.pretrained_disp)
+            optimizer.load_state_dict(weights['optimizer'])
 
     with open(args.save_path/args.log_summary, 'w') as csvfile:
         writer = csv.writer(csvfile, delimiter='\t')
@@ -331,7 +382,8 @@ def main():
                 'state_dict': pose_exp_net.module.state_dict()
             },
             is_best=is_best,
-            record=args.record)
+            record=args.record,
+            epoch=epoch)
 
         with open(args.save_path/args.log_summary, 'a') as csvfile:
             writer = csv.writer(csvfile, delimiter='\t')
@@ -387,7 +439,10 @@ def train(args, train_loader, disp_net, pose_exp_net, optimizer, epoch_size, log
             pred_d, pred_ord = disp_net(tgt_img)
         else:
             disparities = disp_net(tgt_img)
-            depth = [1/disp for disp in disparities]
+            if args.monodepth2:
+                depth = [5.4/disp for disp in disparities]#5.4 is the stereo scale factor 
+            else:
+                depth = [1/disp for disp in disparities]
             #explainability_mask, pose = pose_exp_net(tgt_img, ref_imgs)
 
         if not args.unsupervised: 
@@ -611,7 +666,12 @@ def validate_with_gt(args, val_loader, disp_net, epoch, logger, output_writers=[
             output_depth = torch.squeeze(utils.get_depth_sid(pred, ordinal_c=args.ordinal_c, dataset = args.dataset ))
         else:
             output_disp = disp_net(tgt_img)#;pdb.set_trace()
-            output_depth = 1/output_disp[:,0]
+            if args.monodepth2:
+                #pred_disp, output_depth = disp_to_depth(output_disp[:,0], min_depth=0.1, max_depth=100)
+                output_depth = 1/output_disp[:,0]
+                output_depth *= 5.4#scale factor of stereo training
+            else:
+                output_depth = 1/output_disp[:,0]
             
             if log_outputs and i < len(output_writers):
                 if epoch == 0:
@@ -662,6 +722,33 @@ def validate_with_gt(args, val_loader, disp_net, epoch, logger, output_writers=[
 #    print(error_names)
     return errors.avg, error_names
 
+# model loader for monodepth2
+def load_model(pretrained_model, weights_folder):
+    """Load model(s) from disk
+    """
+    load_weights_folder = os.path.expanduser(weights_folder)
+
+    assert os.path.isdir(load_weights_folder), \
+        "Cannot find folder {}".format(load_weights_folder)
+    print("loading model from folder {}".format(load_weights_folder))
+
+    for n in ["encoder", "depth"]:
+        print("Loading {} weights...".format(n))
+        path = os.path.join(load_weights_folder, "{}.pth".format(n))
+        model_dict = pretrained_model[n].state_dict()
+        pretrained_dict = torch.load(path)
+        pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
+        model_dict.update(pretrained_dict)
+        pretrained_model[n].load_state_dict(model_dict)
+
+    # # loading adam state
+    # optimizer_load_path = os.path.join(load_weights_folder, "adam.pth")
+    # if os.path.isfile(optimizer_load_path):
+    #     print("Loading Adam weights")
+    #     optimizer_dict = torch.load(optimizer_load_path)
+    #     self.model_optimizer.load_state_dict(optimizer_dict)
+    # else:
+    #     print("Cannot find Adam weights so Adam is randomly initialized")
 
 if __name__ == '__main__':
     main()

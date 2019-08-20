@@ -5,6 +5,7 @@ import torch
 from path import Path
 import datetime
 from collections import OrderedDict
+import os
 import pdb
 
 def save_path_formatter(args, parser):
@@ -75,17 +76,17 @@ def tensor2array(tensor, max_value=255, colormap='rainbow', channel_first=True):
     return array
 
 
-def save_checkpoint(save_path, dispnet_state, exp_pose_state, is_best, filename='checkpoint.pth.tar',record=False):
+def save_checkpoint(save_path, dispnet_state, exp_pose_state, is_best, epoch, filename='checkpoint.pth.tar',record=False):
     file_prefixes = ['dispnet', 'exp_pose']
     states = [dispnet_state, exp_pose_state]
     for (prefix, state) in zip(file_prefixes, states):
         torch.save(state, save_path/'{}_{}'.format(prefix,filename))
     
     if record:
-        timestamp = datetime.datetime.now().strftime("%m-%d-%H:%M")
-        record_path = save_path/timestamp
+        #timestamp = datetime.datetime.now().strftime("%m-%d-%H:%M")
+        record_path = save_path/"weights_{}".format(epoch)
         record_path.makedirs_p()
-        torch.save(state, save_path/timestamp/'dispnet_{}'.format(filename))
+        torch.save(dispnet_state, record_path/'dispnet_{}'.format(filename))
 
     if is_best:
         for prefix in file_prefixes:

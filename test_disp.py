@@ -12,7 +12,10 @@ import models
 # for depth ground truth
 from imageio import imsave
 from utils import tensor2array, get_depth_sid
-
+import networks
+#for picture about performance
+import matplotlib.pyplot as plt
+import os
 #from datasets.nyu_depth_v2 import NYU_Depth_V2, transform_chw
 
 parser = argparse.ArgumentParser(description='Script for DispNet testing with corresponding groundTruth',
@@ -22,14 +25,18 @@ parser.add_argument('--imagenet-normalization', action='store_true', help='use i
 parser.add_argument('--ordinal-c', default=80, type=int, metavar='N', help='DORN loss channel number')
 parser.add_argument("--unsupervised", action='store_true', help="to have unsupervised loss")
 #parser.add_argument("--dataset", default='kitti', type=str, help="dataset name")
-
+parser.add_argument("--monodepth2", action='store_true', help="to test direct finetuned monodepth2 model")
+parser.add_argument("--pic", action='store_true', help="to store performance comparison pics")
+parser.add_argument("--error", action='store_true', help="to store performance over different pics")
+parser.add_argument("--stereo", action='store_true', help="to test monodepth2 stereo model")
+parser.add_argument("--mono", action='store_true', help="to test monodepth2 mono video model")
 
 parser.add_argument("--pretrained-dispnet", required=True, type=str, help="pretrained DispNet path")
 parser.add_argument("--pretrained-posenet", default=None, type=str, help="pretrained PoseNet path (for scale factor)")
 
 # width and height is set according to dataset and network (may be I will use other resolution for some network, currently based on dataset)
-# parser.add_argument("--img-height", default=128, type=int, help="Image height")
-# parser.add_argument("--img-width", default=416, type=int, help="Image width")
+parser.add_argument("--img-height", default=128, type=int, help="Image height")
+parser.add_argument("--img-width", default=416, type=int, help="Image width")
 parser.add_argument("--no-resize", action='store_true', help="no resizing is done")
 # parser.add_argument("--min-depth", default=1e-3)
 # parser.add_argument("--max-depth", default=80)
@@ -55,33 +62,62 @@ def main():
         from stillbox_eval.depth_evaluation_utils import test_framework_stillbox as test_framework
 
     #choose corresponding net type
-    if args.network=='dispnet':
-    	disp_net = models.DispNetS().to(device)
-    elif args.network=='disp_res':
-    	disp_net = models.Disp_res().to(device)
-    elif args.network=='disp_res_50':
-        disp_net = models.Disp_res_50().to(device)
-    elif args.network=='disp_vgg':
-    	disp_net = models.Disp_vgg_feature().to(device)
-    elif args.network=='disp_vgg_BN':
-        disp_net = models.Disp_vgg_BN().to(device)
-    elif args.network=='FCRN':
-        disp_net = models.FCRN().to(device)
-    elif args.network=='res50_aspp':
-        disp_net = models.res50_aspp().to(device)  
-    elif args.network=='ASPP':
-        disp_net = models.deeplab_depth().to(device)
-    elif args.network=='disp_res_101':
-        disp_net = models.Disp_res_101().to(device)  
-    elif args.network=='DORN':
-        disp_net = models.DORN().to(device)
-    elif args.network=='disp_vgg_BN_DORN':
-        disp_net = models.Disp_vgg_BN_DORN(ordinal_c=args.ordinal_c).to(device)
+    if args.monodepth2 or args.stereo or args.mono:
+        #add in code about the monodepth2 model
+        # consider about add this part into the monodepth2.py for convenience
+        #import networks
+        mono2_models = {}
+        #optim_params = []
+        #configure encoder
+        if args.network=='disp_vgg_BN':
+            mono2_models["encoder"] = networks.vggEncoder(
+                num_layers = 16, pretrained = False).to(device)
+        elif args.network=='disp_res_18':    
+            mono2_models["encoder"] = networks.ResnetEncoder(
+                num_layers = 18, pretrained = False).to(device)
+        else:
+            raise "undefined network"
+        #optim_params += list(mono2_models["encoder"].parameters())
+        #configure decoder
+        mono2_models["depth"] = networks.DepthDecoder(
+            mono2_models["encoder"].num_ch_enc).to(device)
+        # load weight if mono or stereo
+        if args.mono or args.stereo:
+            load_model(pretrained_model = mono2_models, weights_folder = args.pretrained_dispnet)
+        #construct this disp_net to be compatiable with existing framework
+        disp_net = models.monodepth2(encoder = mono2_models["encoder"], decoder = mono2_models["depth"])
     else:
-    	raise "undefined network"
+        if args.network=='dispnet':
+        	disp_net = models.DispNetS().to(device)
+        elif args.network=='disp_res':
+        	disp_net = models.Disp_res().to(device)
+        elif args.network=='disp_res_50':
+            disp_net = models.Disp_res_50().to(device)
+        elif args.network=='disp_res_18':
+            disp_net = models.Disp_res_18().to(device)
+        elif args.network=='disp_vgg':
+        	disp_net = models.Disp_vgg_feature().to(device)
+        elif args.network=='disp_vgg_BN':
+            disp_net = models.Disp_vgg_BN().to(device)
+        elif args.network=='FCRN':
+            disp_net = models.FCRN().to(device)
+        elif args.network=='res50_aspp':
+            disp_net = models.res50_aspp().to(device)  
+        elif args.network=='ASPP':
+            disp_net = models.deeplab_depth().to(device)
+        elif args.network=='disp_res_101':
+            disp_net = models.Disp_res_101().to(device)  
+        elif args.network=='DORN':
+            disp_net = models.DORN().to(device)
+        elif args.network=='disp_vgg_BN_DORN':
+            disp_net = models.Disp_vgg_BN_DORN(ordinal_c=args.ordinal_c).to(device)
+        else:
+        	raise "undefined network"
+    
+    if not (args.mono or args.stereo):
+        weights = torch.load(args.pretrained_dispnet)#;pdb.set_trace()
+        disp_net.load_state_dict(weights['state_dict'])
 
-    weights = torch.load(args.pretrained_dispnet)
-    disp_net.load_state_dict(weights['state_dict'])
     disp_net.eval()
 
     if args.pretrained_posenet is None:
@@ -97,8 +133,8 @@ def main():
     dataset_dir = Path(args.dataset_dir)
 
     if args.gt_type == 'KITTI':
-        img_height = 128
-        img_width = 416
+        img_height = args.img_height
+        img_width = args.img_width
         min_depth = 1e-3
         max_depth = 80
 
@@ -126,6 +162,12 @@ def main():
 
     print('{} files to test'.format(test_length))
     errors = np.zeros((2, 7, test_length), np.float32)
+    # save error per pixel
+    if args.error:
+        # not all this shape
+        # abs_rel_per_pixel = np.zeros((375, 1242, test_length), np.float32)
+        abs_rel_per_pixel = []
+
     if args.output_dir is not None:
         output_dir = Path(args.output_dir)
         output_dir.makedirs_p()
@@ -159,7 +201,12 @@ def main():
        
         #for different normalize method
         if args.imagenet_normalization:
-        	normalize = torchvision.transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+            if args.monodepth2:
+            # this date normalize of monodepth2 is written inside the dispnet
+            # thus we just use this 0 and 1 that do not change data
+                normalize = torchvision.transforms.Normalize(mean=[0, 0, 0],std=[1, 1, 1])
+            else:
+        	    normalize = torchvision.transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         else:
         	normalize = torchvision.transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
         
@@ -253,8 +300,78 @@ def main():
 
         if args.gt_type == 'KITTI':
             if sample['mask'] is not None:
+                # for error use
+                pred_depth_zoomed_original = np.copy(pred_depth_zoomed)
+                gt_depth_original = np.copy(gt_depth)
+
                 pred_depth_zoomed = pred_depth_zoomed[sample['mask']]
                 gt_depth = gt_depth[sample['mask']]
+
+                if args.error:
+                    # for visualization of bad pixels
+                    if args.stereo:
+                        current_abs_rel_per_pixel = compute_abs_rel_per_pixel(gt_depth_original, pred_depth_zoomed_original*5.4, min_depth=min_depth, max_depth=max_depth)
+                    elif args.mono:
+                        scale_factor = np.median(gt_depth)/np.median(pred_depth_zoomed)
+                        current_abs_rel_per_pixel = compute_abs_rel_per_pixel(gt_depth_original, pred_depth_zoomed_original*scale_factor, min_depth=min_depth, max_depth=max_depth)
+                    #******************
+                    valid = current_abs_rel_per_pixel>0
+                    gt_height, gt_width = valid.shape[:2]
+                    crop = np.array([0.40810811 * gt_height, 0.99189189 * gt_height,
+                                     0.03594771 * gt_width,  0.96405229 * gt_width]).astype(np.int32)
+                    crop_mask = np.zeros(valid.shape)
+                    crop_mask[crop[0]:crop[1], crop[2]:crop[3]] = 1
+                    valid = np.logical_and(valid, crop_mask)
+                    # fetch the index of the valid pixel
+                    ind = np.where(valid)
+                    index_result = np.zeros((len(ind[0]),3))
+                    #first two column for index
+                    index_result[:,0] = ind[0]
+                    index_result[:,1] = ind[1]#;pdb.set_trace()
+                    # fill in result
+                    index_result[:,2] = current_abs_rel_per_pixel[valid]
+                    #******************
+                    # find the worst result
+                    worst = True
+                    if worst:
+                        max_100_error_index = np.argpartition(index_result[:,2], -300)[-300:]
+                        graph_index = index_result[max_100_error_index,:2].astype(np.int32)
+                    else:
+                        # find abs rel that are larger than 0.3
+                        abs_rel_03 = index_result[:,2] > 0.3
+                        graph_index = index_result[abs_rel_03,:2].astype(np.int32)
+
+
+                    annotate_input = np.copy(sample['tgt'])
+                    for k in range(5):
+                        for l in range(5):
+                            annotate_input[(graph_index[:,0]+k,graph_index[:,1]+l,0)]=(annotate_input[(graph_index[:,0]+k,graph_index[:,1]+l,0)]/2.0+255.0/2.0).astype(int)
+                            annotate_input[(graph_index[:,0]+k,graph_index[:,1]+l,1)]=(annotate_input[(graph_index[:,0]+k,graph_index[:,1]+l,1)]/2.0).astype(int)
+                            annotate_input[(graph_index[:,0]+k,graph_index[:,1]+l,2)]=(annotate_input[(graph_index[:,0]+k,graph_index[:,1]+l,2)]/2.0).astype(int)
+                    if worst:
+                        if args.stereo:
+                            imsave('output/stereo/bad_300pixel/{}_input.png'.format(j), sample['tgt'])
+                            imsave('output/stereo/bad_300pixel/{}_annotate.png'.format(j), annotate_input)
+                        elif args.mono:
+                            imsave('output/mono/bad_300pixel/{}_input.png'.format(j), sample['tgt'])
+                            imsave('output/mono/bad_300pixel/{}_annotate.png'.format(j), annotate_input)
+                        else:
+                            imsave('output/bad_300pixel/{}_input.png'.format(j), sample['tgt'])
+                            imsave('output/bad_300pixel/{}_annotate.png'.format(j), annotate_input)
+                    else:
+                        if args.stereo:
+                            imsave('output/stereo/bad_03_pixel/{}_input.png'.format(j), sample['tgt'])
+                            imsave('output/stereo/bad_03_pixel/{}_annotate.png'.format(j), annotate_input)
+                        elif args.mono:
+                            imsave('output/mono/bad_03_pixel/{}_input.png'.format(j), sample['tgt'])
+                            imsave('output/mono/bad_03_pixel/{}_annotate.png'.format(j), annotate_input)
+                        else:
+                            imsave('output/bad_03_pixel/{}_input.png'.format(j), sample['tgt'])
+                            imsave('output/bad_03_pixel/{}_annotate.png'.format(j), annotate_input)
+
+                    #******************
+                    abs_rel_per_pixel.append(current_abs_rel_per_pixel) 
+
         elif args.gt_type == 'NYU':
             valid = (gt_depth > min_depth) & (gt_depth < max_depth)
             pred_depth_zoomed = pred_depth_zoomed[valid]
@@ -271,8 +388,10 @@ def main():
 
             scale_factor = sample['displacement'] / mean_displacement_magnitude
             errors[0,:,j] = compute_errors(gt_depth, pred_depth_zoomed*scale_factor)
-        if args.unsupervised:
+        if args.unsupervised or args.mono:# for video model
             scale_factor = np.median(gt_depth)/np.median(pred_depth_zoomed)
+        elif args.stereo:
+            scale_factor = 5.4
         else:
             scale_factor = 1#;pdb.set_trace()
         #gt_scale[j] = np.median(gt_depth)
@@ -297,15 +416,28 @@ def main():
 
     print("Results with scale factor determined by GT/prediction ratio (like the original paper) : ")
     print("{:>10}, {:>10}, {:>10}, {:>10}, {:>10}, {:>10}, {:>10}".format(*error_names))
-    print("{:10.4f}, {:10.4f}, {:10.4f}, {:10.4f}, {:10.4f}, {:10.4f}, {:10.4f}".format(*mean_errors[1]))
+    print("&{:10.3f}& {:10.3f}& {:10.3f}& {:10.3f}& {:10.3f}& {:10.3f}& {:10.3f}".format(*mean_errors[1]))
+    # print("{:10.4f}, {:10.4f}, {:10.4f}, {:10.4f}, {:10.4f}, {:10.4f}, {:10.4f}".format(*mean_errors[1]))
 
     if args.output_dir is not None:
         np.save(output_dir/'predictions.npy', predictions)
     
-    #save to check whether avg is needed in the prediction 
-    output_file = Path('errors_test')
-    np.save(output_file, errors[1,:,:])
+    #save to check errors per sample to check different method training result difference
+    # if args.error: 
+    #     # per image
+    #     # output_file = Path('errors_test')
+    #     # np.save(output_file, errors[1,:,:])
 
+        # output_file = Path('abs_visual_pixel')
+        # np.save(output_file, )
+
+    if args.pic:
+        plt.plot(errors[1,0,:])
+        plt.title("Direct supervised performance over different pics")
+        plt.xlabel("index of pics in test")
+        plt.ylabel("Abs Rel")
+        plt.legend(loc='upper left')
+        plt.savefig("Direct_graph.pdf")
 
 #interpolate ground truth map
 def lin_interp(shape, xyd):
@@ -336,6 +468,32 @@ def compute_errors(gt, pred):
 
     return abs_rel, sq_rel, rmse, rmse_log, a1, a2, a3
 
+def compute_abs_rel_per_pixel(gt, pred, min_depth, max_depth):
+    valid = (gt > min_depth) & (gt < max_depth)
+    valid_complement = np.logical_not(valid)
+
+    abs_rel = np.abs(gt - pred) / gt
+    abs_rel[valid_complement] = -1
+    return abs_rel
+
+# model loader for monodepth2
+def load_model(pretrained_model, weights_folder):
+    """Load model(s) from disk
+    """
+    load_weights_folder = os.path.expanduser(weights_folder)
+
+    assert os.path.isdir(load_weights_folder), \
+        "Cannot find folder {}".format(load_weights_folder)
+    print("loading model from folder {}".format(load_weights_folder))
+
+    for n in ["encoder", "depth"]:
+        print("Loading {} weights...".format(n))
+        path = os.path.join(load_weights_folder, "{}.pth".format(n))
+        model_dict = pretrained_model[n].state_dict()
+        pretrained_dict = torch.load(path)
+        pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
+        model_dict.update(pretrained_dict)
+        pretrained_model[n].load_state_dict(model_dict)
 
 if __name__ == '__main__':
     main()

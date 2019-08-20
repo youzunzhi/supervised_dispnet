@@ -11,3 +11,5 @@ from .DORN import DORN
 from .Disp_vgg_BN_DORN import Disp_vgg_BN_DORN
 from .res_aspp import res50_aspp
 from .Disp_res_50 import Disp_res_50
+from .Disp_res_18 import Disp_res_18
+from .monodepth2 import monodepth2

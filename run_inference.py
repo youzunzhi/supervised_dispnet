@@ -13,12 +13,16 @@ from utils import tensor2array, get_depth_sid
 import pdb
 from PIL import Image, ImageEnhance
 
+import networks
+import os
+
 parser = argparse.ArgumentParser(description='Inference script for DispNet learned with \
                                  Structure from Motion Learner inference on KITTI and CityScapes Dataset',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
 parser.add_argument("--network", default='disp_vgg', type=str, help="network type")
 parser.add_argument('--imagenet-normalization', action='store_true', help='use imagenet parameter for normalization.')
+parser.add_argument("--monodepth2", action='store_true', help="to inference monodepth2 model")
 
 parser.add_argument("--output-disp", action='store_true', help="save disparity img")
 parser.add_argument("--output-depth", action='store_true', help="save depth img")
@@ -44,28 +48,55 @@ def main():
         return
 
     # load ground truth avg for scale
-    scale_factor = np.load('gt_avg_test.npy')
+    # scale_factor = np.load('gt_avg_test.npy')
     
-
-    if args.network=='dispnet':
-        disp_net = models.DispNetS().to(device)
-    elif args.network=='disp_res':
-        disp_net = models.Disp_res().to(device)
-    elif args.network=='disp_vgg':
-        disp_net = models.Disp_vgg_feature().to(device)
-    elif args.network=='disp_vgg_BN':
-        disp_net = models.Disp_vgg_BN().to(device)
-    elif args.network=='FCRN':
-        disp_net = models.FCRN().to(device)     
-    elif args.network=='ASPP':
-        disp_net = models.deeplab_depth().to(device)   
-    elif args.network=='disp_vgg_BN_DORN':
-        disp_net = models.Disp_vgg_BN_DORN().to(device)   
+    #changing different network
+    if args.monodepth2:
+        #add in code about the monodepth2 model
+        # consider about add this part into the monodepth2.py for convenience
+        #import networks
+        mono2_models = {}
+        #optim_params = []
+        #configure encoder
+        if args.network=='disp_vgg_BN':
+            mono2_models["encoder"] = networks.vggEncoder(
+                num_layers = 16, pretrained = False).to(device)
+        elif args.network=='disp_res_18':    
+            mono2_models["encoder"] = networks.ResnetEncoder(
+                num_layers = 18, pretrained = False).to(device)
+        else:
+            raise "undefined network"
+        #optim_params += list(mono2_models["encoder"].parameters())
+        #configure decoder
+        mono2_models["depth"] = networks.DepthDecoder(
+            mono2_models["encoder"].num_ch_enc).to(device)
+        #optim_params += list(mono2_models["depth"].parameters())
+        # when monodepth2, it must load existing weight (not include adam)
+        load_model(pretrained_model = mono2_models, weights_folder = args.pretrained)
+        #construct this disp_net to be compatiable with existing framework
+        disp_net = models.monodepth2(encoder = mono2_models["encoder"], decoder = mono2_models["depth"])
     else:
-        raise "undefined network"
+        if args.network=='dispnet':
+            disp_net = models.DispNetS().to(device)
+        elif args.network=='disp_res':
+            disp_net = models.Disp_res().to(device)
+        elif args.network=='disp_vgg':
+            disp_net = models.Disp_vgg_feature().to(device)
+        elif args.network=='disp_vgg_BN':
+            disp_net = models.Disp_vgg_BN().to(device)
+        elif args.network=='FCRN':
+            disp_net = models.FCRN().to(device)     
+        elif args.network=='ASPP':
+            disp_net = models.deeplab_depth().to(device)   
+        elif args.network=='disp_vgg_BN_DORN':
+            disp_net = models.Disp_vgg_BN_DORN().to(device)   
+        else:
+            raise "undefined network"
+    
+    if not args.monodepth2:# monodepth2 has already read weight
+        weights = torch.load(args.pretrained)
+        disp_net.load_state_dict(weights['state_dict'])
 
-    weights = torch.load(args.pretrained)
-    disp_net.load_state_dict(weights['state_dict'])
     disp_net.eval()
 
     timestamp = datetime.datetime.now().strftime("%m-%d-%H:%M")
@@ -96,7 +127,12 @@ def main():
 
         #for different normalize method
         if args.imagenet_normalization:
-            normalize = torchvision.transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+            if args.monodepth2:
+            # this date normalize of monodepth2 is written inside the dispnet
+            # thus we just use this 0 and 1 that do not change data
+                normalize = torchvision.transforms.Normalize(mean=[0, 0, 0],std=[1, 1, 1])
+            else:
+                normalize = torchvision.transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         else:
             normalize = torchvision.transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
  
@@ -108,7 +144,7 @@ def main():
             pred_d, pred_ord = disp_net(tensor_img)
             #pred_depth = torch.squeeze(get_depth_sid(pred_d))#.cpu().numpy()#;pdb.set_trace()
             pred_depth = get_depth_sid(pred_d)[0]
-            output = 1/pred_depth;pdb.set_trace()
+            output = 1/pred_depth#;pdb.set_trace()
         else:
             output = disp_net(tensor_img)[0]
         
@@ -119,7 +155,11 @@ def main():
         # pred_max[j] = np.amax(pred) 
 
         if args.output_disp:
-            disp = (255*tensor2array(output, max_value=50, colormap='bone', channel_first=False)).astype(np.uint8)
+            crop = [0.40810811 * args.img_height, 0.99189189 * args.img_height,
+                    0.03594771 * args.img_width,  0.96405229 * args.img_width]
+            crop = [int(i) for i in crop]
+            resize_output = output[:,crop[0]:crop[1],crop[2]:crop[3]]
+            disp = (255*tensor2array(resize_output, max_value=None, colormap='bone', channel_first=False)).astype(np.uint8)
             #max_value 50 or 80 is like the clamp(this colormap is significantly influenced by small value, thus sometimes 
             #the relative value that divide by max depth would be influenced by the max depth predicted over the 
             #middle of lane(due to the imprecise max prediction))
@@ -144,6 +184,35 @@ def main():
     
     # output_file = Path('pred_max_test')
     # np.save(output_file, pred_max)
+
+# model loader for monodepth2
+def load_model(pretrained_model, weights_folder):
+    """Load model(s) from disk
+    """
+    load_weights_folder = os.path.expanduser(weights_folder)
+
+    assert os.path.isdir(load_weights_folder), \
+        "Cannot find folder {}".format(load_weights_folder)
+    print("loading model from folder {}".format(load_weights_folder))
+
+    for n in ["encoder", "depth"]:
+        print("Loading {} weights...".format(n))
+        path = os.path.join(load_weights_folder, "{}.pth".format(n))
+        model_dict = pretrained_model[n].state_dict()
+        pretrained_dict = torch.load(path)
+        pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
+        model_dict.update(pretrained_dict)
+        pretrained_model[n].load_state_dict(model_dict)
+
+def generate_mask(height, width):
+    # crop used by Garg ECCV16 to reprocude Eigen NIPS14 results
+    # if used on gt_size 370x1224 produces a crop of [-218, -3, 44, 1180]
+    crop = np.array([0.40810811 * height, 0.99189189 * height,
+                     0.03594771 * width,  0.96405229 * width]).astype(np.int32)
+    crop_mask = np.zeros((height, width))
+    crop_mask[crop[0]:crop[1],crop[2]:crop[3]] = 1
+    crop_mask = torch.from_numpy(crop_mask).unsqueeze(0).byte().to(device)
+    return crop_mask
 
 if __name__ == '__main__':
     main()

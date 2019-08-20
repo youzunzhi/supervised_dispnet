@@ -21,13 +21,14 @@ class SequenceFolder(data.Dataset):
         transform functions must take in a list a images and a numpy array (usually intrinsics matrix)
     """
 
-    def __init__(self, root, seed=None, train=True, sequence_length=3, transform=None, target_transform=None):
+    def __init__(self, root, seed=None, train=True, sequence_length=3, transform=None, target_transform=None, percentage=1):
         np.random.seed(seed)
         random.seed(seed)
         self.root = Path(root)
         scene_list_path = self.root/'train.txt' if train else self.root/'val.txt'
         self.scenes = [self.root/folder[:-1] for folder in open(scene_list_path)]
         self.transform = transform
+        self.percentage = percentage
         self.crawl_folders(sequence_length)
 
     def crawl_folders(self, sequence_length):
@@ -49,6 +50,10 @@ class SequenceFolder(data.Dataset):
                     sample['ref_imgs'].append(imgs[i+j])
                 sequence_set.append(sample)
         random.shuffle(sequence_set)
+        #change the number of samples
+        stop_point   = int(self.percentage*len(sequence_set))
+        sequence_set = sequence_set[:stop_point]
+
         self.samples = sequence_set
 
     def __getitem__(self, index):

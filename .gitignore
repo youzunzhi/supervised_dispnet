@@ -122,6 +122,7 @@ output/
 groundtruth/
 #ignore data
 *.npy
+*.pdf
 #ignore sftp setting
 #kronos_sftp
 
