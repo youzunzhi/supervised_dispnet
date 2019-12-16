@@ -1,7 +1,8 @@
-# An Empirical Study of Deep Models for Monocular Depth Estimation
-This codebase implements the system described in the paper:
+# Towards Good Practice for CNN Based Monocular Depth Estimation
+This codebase is an official PyTorch implementation of the system described in the paper:
 
-An Empirical Study of Deep Models for Monocular Depth Estimation
+Towards Good Practice for CNN Based Monocular Depth Estimation
+WACV 2020
 <!-- ****************(need to be change)
 [Zhicheng Fang](),
 
