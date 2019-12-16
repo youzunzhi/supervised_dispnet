@@ -57,5 +57,5 @@ def save_npy(source_dir, target_dir):
 
 
 if __name__ == '__main__':
-    save_npy('/srv/glusterfs/zfang/labeled_nyu',# wait to change
-             '/scratch/zfang/nyu_depth_v2/labeled')
+    save_npy('/srv/beegfs02/scratch/monodepth/data/nyu_related/labeled_nyu',# wait to change
+             '/srv/beegfs02/scratch/monodepth/data/nyu_related/test_jpg_352_256')

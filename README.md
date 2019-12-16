@@ -58,7 +58,7 @@ How to process the training dataset:
 1.) Extract the RAW dataset into a folder A (name not important)
 2.) Download NYU Depth v2. toolbox from http://cs.nyu.edu/~silberman/code/toolbox_nyu_depth_v2.zip
 3.) Extract scripts from the toolbox to folder 'tools' in folder A
-4.) Run process_raw.m in folder A
+4.) Move data/nyudepth_preparation/process_raw.m to folder A and run it
 5.) python nyud_raw_train_to_npy.py (modify the paths in that file to point to correct dirs, and also the resolution of training images can be modified here)
 
 How to process the testing dataset:

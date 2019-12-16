@@ -93,7 +93,7 @@ parser.add_argument('-f', '--training-output-freq', type=int, help='frequence fo
 best_error = -1
 n_iter = 0
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-os.environ['TORCH_MODEL_ZOO'] = '/scratch_net/airfox/zfang/pytorch_init_weight/models'
+os.environ['TORCH_MODEL_ZOO'] = '/scratch_net/minga/zfang/pytorch_init_weight/models'
 
 def main():
     global best_error, n_iter, device
