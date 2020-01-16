@@ -56,18 +56,18 @@ python3 data/prepare_train_data.py /path/to/raw/kitti/dataset/ --dataset-format 
 
 For [NYU](https://cs.nyu.edu/~silberman/datasets/nyu_depth_v2.html), first download the dataset using this [script](horatio.cs.nyu.edu/mit/silberman/nyu_depth_v2/nyu_depth_v2_raw.zip) provided on the official website, then follow the instruction below and corresponding file like process_raw.m is saved in data/nyudepth_preparation. 
 
-How to process the training dataset:
-1.) Extract the RAW dataset into a folder A (name not important)
-2.) Download NYU Depth v2. toolbox from http://cs.nyu.edu/~silberman/code/toolbox_nyu_depth_v2.zip
-3.) Extract scripts from the toolbox to folder 'tools' in folder A
-4.) Move data/nyudepth_preparation/process_raw.m to folder A and run it
-5.) python nyud_raw_train_to_npy.py (modify the paths in that file to point to correct dirs, and also the resolution of training images can be modified here)
+How to process the training dataset:\
+1.) Extract the RAW dataset into a folder A (name not important)\
+2.) Download NYU Depth v2. toolbox from http://cs.nyu.edu/~silberman/code/toolbox_nyu_depth_v2.zip \
+3.) Extract scripts from the toolbox to folder 'tools' in folder A\
+4.) Move data/nyudepth_preparation/process_raw.m to folder A and run it\
+5.) python nyud_raw_train_to_npy.py (modify the paths in that file to point to correct dirs, and also the resolution of training images can be modified here)\
 
-How to process the testing dataset:
-1.) Download labeled NYU Depth v2. dataset from http://horatio.cs.nyu.edu/mit/silberman/nyu_depth_v2/nyu_depth_v2_labeled.mat
-2.) Download splits.mat containing official train/test split http://horatio.cs.nyu.edu/mit/silberman/indoor_seg_sup/splits.mat
-3.) Place all downloaded files into single folder
-4.) Run script nyud_test_to_npy.py (modify the paths in that file to point to correct dirs)
+How to process the testing dataset:\
+1.) Download labeled NYU Depth v2. dataset from http://horatio.cs.nyu.edu/mit/silberman/nyu_depth_v2/nyu_depth_v2_labeled.mat \
+2.) Download splits.mat containing official train/test split http://horatio.cs.nyu.edu/mit/silberman/indoor_seg_sup/splits.mat \
+3.) Place all downloaded files into single folder\
+4.) Run script nyud_test_to_npy.py (modify the paths in that file to point to correct dirs)\
 
 ## Training
 Once the data are formatted following the above instructions, you should be able to train the model by running the following command
