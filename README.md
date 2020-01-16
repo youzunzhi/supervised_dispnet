@@ -2,7 +2,8 @@
 This codebase is an official PyTorch implementation of the system described in the paper:
 
 Towards Good Practice for CNN Based Monocular Depth Estimation\
-WACV 2020
+Zhicheng Fang, Xiaoran Chen, Yuhua Chen, Luc Van Gool
+In WACV 2020
 <!-- ****************(need to be change)
 [Zhicheng Fang](),
 
@@ -54,7 +55,7 @@ python3 data/prepare_train_data.py /path/to/raw/kitti/dataset/ --dataset-format 
 ```
 
 For [NYU](https://cs.nyu.edu/~silberman/datasets/nyu_depth_v2.html), first download the dataset using this [script](horatio.cs.nyu.edu/mit/silberman/nyu_depth_v2/nyu_depth_v2_raw.zip) provided on the official website, then follow the instruction below and corresponding file like process_raw.m is saved in data/nyudepth_preparation. 
-```
+
 How to process the training dataset:
 1.) Extract the RAW dataset into a folder A (name not important)
 2.) Download NYU Depth v2. toolbox from http://cs.nyu.edu/~silberman/code/toolbox_nyu_depth_v2.zip
@@ -67,12 +68,6 @@ How to process the testing dataset:
 2.) Download splits.mat containing official train/test split http://horatio.cs.nyu.edu/mit/silberman/indoor_seg_sup/splits.mat
 3.) Place all downloaded files into single folder
 4.) Run script nyud_test_to_npy.py (modify the paths in that file to point to correct dirs)
-```
-<!-- For [Cityscapes](https://www.cityscapes-dataset.com/), download the following packages: 1) `leftImg8bit_sequence_trainvaltest.zip`, 2) `camera_trainvaltest.zip`. You will probably need to contact the administrators to be able to get it. Then run the following command
-```bash
-python3 data/prepare_train_data.py /path/to/cityscapes/dataset/ --dataset-format 'cityscapes' --dump-root /path/to/resulting/formatted/data/ --width 416 --height 171 --num-threads 4
-```
-Notice that for Cityscapes the `img_height` is set to 171 because we crop out the bottom part of the image that contains the car logo, and the resulting image will have height 128. -->
 
 ## Training
 Once the data are formatted following the above instructions, you should be able to train the model by running the following command
@@ -119,3 +114,16 @@ Currently not available
 |      specification      | Abs Rel | Sq Rel | RMSE  | RMSE(log) | Acc.1 | Acc.2 | Acc.3 |
 |-------------------------|---------|--------|-------|-----------|-------|-------|-------|
 | disp_vgg_BN with L1 loss| 0.102   | 0.075  | 0.410 | 0.157     | 0.868 | 0.962 | 0.988 | 
+
+### Reference
+
+If you find our work useful in your research please consider citing our paper:
+
+```
+@inproceedings{fang2020towards,
+  title     = {Towards Good Practice for CNN Based Monocular Depth Estimation},
+  author    = {Zhicheng Fang, Xiaoran Chen, Yuhua Chen, Luc Van Gool},
+  booktitle = {Winter Conference on Applications of Computer Vision (WACV)},
+  year = {2020}
+}
+```
