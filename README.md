@@ -1,7 +1,6 @@
 # Towards Good Practice for CNN Based Monocular Depth Estimation
 This codebase is an official PyTorch implementation of the system described in the paper:
-
-Towards Good Practice for CNN Based Monocular Depth Estimation\
+[Towards Good Practice for CNN Based Monocular Depth Estimation](http://openaccess.thecvf.com/content_WACV_2020/html/Fang_Towards_Good_Practice_for_CNN-Based_Monocular_Depth_Estimation_WACV_2020_paper.html)\
 Zhicheng Fang, Xiaoran Chen, Yuhua Chen, Luc Van Gool
 In WACV 2020
 <!-- ****************(need to be change)
