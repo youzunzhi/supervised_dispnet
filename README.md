@@ -97,11 +97,11 @@ notice that imagenet-normalization is quite important if the encoder is pretrain
 Test file list is available in kitti eval folder. 
 
 ## Pretrained Nets
+|dataset|      specification      |     Link     |
+|-------|-------------------------|---------------------------------------------------------------------------------|
+| kitti | disp_vgg_BN with L1 loss| [Download](https://drive.google.com/open?id=1RrxB-fZhUyD2j9IxMqsMOJ5ANqMZbbOq)  |
+|  nyu  | disp_vgg_BN with L1 loss| [Download](https://drive.google.com/open?id=1BUPCg94Vb5TaDvG65Ruu_3GTu8ALqFmr)  |
 
-Currently not available
-<!-- 
-[Avalaible here](https://drive.google.com/drive/folders/1H1AFqSS8wr_YzwG2xWwAQHTfXN5Moxmx)
- -->
 ### KITTI Depth Results
 
 |      specification      | Abs Rel | Sq Rel | RMSE  | RMSE(log) | Acc.1 | Acc.2 | Acc.3 |
