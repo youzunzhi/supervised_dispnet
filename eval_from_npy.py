@@ -1,4 +1,5 @@
-from scipy.misc.pilutil import imresize,imread
+# from scipy.misc.pilutil import imresize,imread
+from imageio import imread
 from scipy.ndimage.interpolation import zoom
 import numpy as np
 from path import Path

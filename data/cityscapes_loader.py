@@ -1,7 +1,8 @@
 from __future__ import division
 import json
 import numpy as np
-import scipy.misc
+# import scipy.misc
+import imageio
 from path import Path
 from tqdm import tqdm
 
@@ -81,7 +82,7 @@ class cityscapes_loader(object):
                                [0, fy, v0],
                                [0,  0,  1]])
 
-        img = scipy.misc.imread(frame_path)
+        img = imageio.imread(frame_path)
         h,w,_ = img.shape
         zoom_y = self.img_height/h
         zoom_x = self.img_width/w
@@ -115,6 +116,7 @@ class cityscapes_loader(object):
                                                           frame_id)
         if not img_file.isfile():
             return None
-        img = scipy.misc.imread(img_file)
-        img = scipy.misc.imresize(img, (self.img_height, self.img_width))[:int(self.img_height*0.75)]
+        img = imageio.imread(img_file)
+        from PIL import Image
+        img = np.array(Image.fromarray(img).resize((self.img_width, self.img_height)))[:int(self.img_height*0.75)]
         return img
